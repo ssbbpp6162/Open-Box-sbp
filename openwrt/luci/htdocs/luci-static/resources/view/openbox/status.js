@@ -948,7 +948,7 @@ return view.extend({
 				// 撤销的是什么。
 				E('p', {}, tr('Remove Open-Box from this router. Services are stopped, DNS and firewall changes are reverted, and the LuCI page disappears after the next refresh.')),
 				E('p', {}, tr('This cannot be undone. Continue?')),
-				E('div', { 'style': ROW }, [
+				E('div', { 'style': ROW + ';justify-content:flex-start;text-align:left' }, [
 					purgeBox,
 					E('label', { 'for': 'ob-purge' }, tr('Also delete data (subscriptions, password, rule sets)'))
 				]),
