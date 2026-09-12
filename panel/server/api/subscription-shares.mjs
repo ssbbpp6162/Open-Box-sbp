@@ -84,8 +84,10 @@ export const registerPublicSubscriptionShareRoutes = (app, { store, fetchImpl = 
       if (!share.enabled) return res.status(404).type('text/plain').send('subscription share disabled')
       const subscriptions = store.getSubscriptions()
       const selected = share.subscriptionIds.map((id) => subscriptions.find((s) => s.id === id)).filter(Boolean)
-      const parts = []
-      for (const sub of selected) parts.push(await sourceText(sub, { fetchImpl, lookup }))
+      // 多条订阅并行回源，避免分享链接按订阅数量线性变慢；客户端通常有较短的
+      // 下载超时，串行请求会让本来可用的分享链接被误判为 502。Promise.all 保持
+      // 选中顺序，同时任一来源失败仍整体失败，避免生成不完整的配置。
+      const parts = await Promise.all(selected.map((sub) => sourceText(sub, { fetchImpl, lookup })))
       const merged = mergeContents(parts)
       if (!merged.body) return res.status(404).type('text/plain').send('subscription share has no content')
       res.setHeader('Cache-Control', 'no-store')
