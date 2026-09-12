@@ -403,10 +403,22 @@ export const isUrlTestGroupStale = (groupName: string) => {
 }
 
 // 看到这种组就替它强制重测一次(/group/<name>/delay):内核测完会立刻重新择优,
-// 用户不用自己去点闪电。超时是即时故障信号,不应等完整的 url-test interval;
-// 短暂冷却只用于避免整组都不可用时每次刷新都重复发起整组测速。
-const staleRepairAt = new Map<string, number>()
-const STALE_REPAIR_INTERVAL = 15 * 1000
+// 用户不用自己去点闪电。超时是即时故障信号,所以第一次发现当前节点失效时马上补测；
+// 如果整组仍不可用,同一个节点不再按页面刷新频率重试,而是遵守该组自己的检测间隔。
+// 切到另一个节点后即使它也没有结果,视为新的失效事件,允许马上再测一次。
+const staleRepairAt = new Map<string, { at: number; node: string }>()
+const DEFAULT_URLTEST_INTERVAL = 5 * 60 * 1000
+
+const groupIntervalMs = (groupName: string) => {
+  const raw = managedOutbounds.value.find((group) => group.name === groupName)?.interval
+  if (!raw) return DEFAULT_URLTEST_INTERVAL
+  const match = /^(\d+)(s|m|h)$/.exec(raw.trim())
+  if (!match) return DEFAULT_URLTEST_INTERVAL
+  const value = Number(match[1])
+  if (!Number.isFinite(value) || value <= 0) return DEFAULT_URLTEST_INTERVAL
+  const unit = match[2]
+  return value * (unit === 's' ? 1000 : unit === 'm' ? 60_000 : 3_600_000)
+}
 
 const repairStaleUrlTestGroups = () => {
   const now = Date.now()
@@ -417,11 +429,14 @@ const repairStaleUrlTestGroups = () => {
       staleRepairAt.delete(groupName)
       continue
     }
-    // 同一批全失败时最多每 15 秒重试一次;一旦切到新节点并恢复,上面的分支会清掉时间戳。
-    if (now - (staleRepairAt.get(groupName) ?? 0) < STALE_REPAIR_INTERVAL) {
+    const node = proxyMap.value[groupName]?.now || ''
+    const previous = staleRepairAt.get(groupName)
+    // 同一节点持续失败时按组的 interval 重试,避免页面每次刷新都重新发起整组测速。
+    // 节点已切换时允许立即检测新节点,满足超时后快速换节点的行为。
+    if (previous && previous.node === node && now - previous.at < groupIntervalMs(groupName)) {
       continue
     }
-    staleRepairAt.set(groupName, now)
+    staleRepairAt.set(groupName, { at: now, node })
     // sing-box 把超时节点的 history 删除,服务端看不到正文;先让服务端按内核启动时间
     // 判定这次是否真的是超时(重启造成的整批清空不会误记),再让内核重测并择优。后续
     // syncLatencyHistory + fetchProxies 会读到新节点的延迟,悬浮框顶部自然变成「新节点
