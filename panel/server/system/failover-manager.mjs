@@ -457,7 +457,7 @@ export const createFailoverManager = ({
     const results = {}
     await Promise.all(due.map(async (g) => {
       g.inFlight = true
-      const intervalMs = Math.max(5000, Number(g.settings?.intervalMs) || 30_000)
+      const intervalMs = Math.max(5000, Number(g.settings?.intervalMs) || 60_000)
       try {
         const r = await runRound(g, proxies, kernelStartedAt)
         results[g.tag] = r

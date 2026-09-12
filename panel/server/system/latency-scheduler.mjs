@@ -2,7 +2,7 @@
 //
 // sing-box 的 URLTest 组是"懒惰"的:interval 只在这个组有流量经过时才起作用——启动时测一遍,
 // 之后只有连接真正经过它才启动定时器,超过 idle_timeout 没流量又停掉。闲置的组永远停在启动
-// 那一次结果上,用户设的「5 分钟测一次」在没流量时不成立。这里由面板服务端按 interval 严格
+// 那一次结果上,用户设的检测间隔在没流量时不成立。这里由面板服务端按 interval 严格
 // 定时:每 tick 看一眼每个 urltest 组最近一轮是什么时候(自己记的,或者成员里最新的一条——
 // 内核启动自测、有流量时内核自己测都算),到点就调内核的组测速接口把这组测一遍。
 //
@@ -17,7 +17,7 @@ import { kernelTestUrl } from '../engine/test-url.mjs'
 
 export { parseDuration }
 
-const DEFAULT_INTERVAL_MS = 3 * 60_000
+const DEFAULT_INTERVAL_MS = 60_000
 const latestTime = (proxy) => {
   const history = proxy && Array.isArray(proxy.history) ? proxy.history : []
   const last = history[history.length - 1]

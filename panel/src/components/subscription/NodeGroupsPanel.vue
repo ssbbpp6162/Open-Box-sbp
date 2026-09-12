@@ -216,7 +216,7 @@
               <option value="failover">{{ $t('groupType_failover') }}</option>
             </select>
           </div>
-          <!-- 故障转移:检测间隔按秒填(30 秒一轮健康检查,不是分钟级的择优测速);容差只给多节点页签里的
+          <!-- 故障转移:检测间隔按秒填(按设定间隔进行健康检查,不是分钟级的择优测速);容差只给多节点页签里的
                内部自动择优用,页签全是单节点时没有用武之地,置灰说明;超时 / 失败轮数 / 回切收进高级设置 -->
           <template v-if="isFailover">
             <div class="flex flex-col gap-1">
@@ -228,6 +228,7 @@
                   min="5"
                   max="86400"
                   class="input input-sm w-20"
+                  @blur="normalizeIntervalSeconds"
                 />
                 <span class="text-base-content/60 text-xs">{{ $t('groupUnitSecond') }}</span>
               </div>
@@ -272,12 +273,14 @@
               <label class="text-xs font-medium">{{ $t('groupInterval') }}</label>
               <div class="flex items-center gap-1">
                 <input
-                  v-model.number="intervalMinutes"
+                  v-model.number="urltestIntervalSeconds"
                   type="number"
-                  min="1"
+                  min="5"
+                  max="86400"
                   class="input input-sm w-20"
+                  @blur="normalizeIntervalSeconds"
                 />
-                <span class="text-base-content/60 text-xs">{{ $t('groupUnitMinute') }}</span>
+                <span class="text-base-content/60 text-xs">{{ $t('groupUnitSecond') }}</span>
               </div>
             </div>
             <div class="flex flex-col gap-1">
@@ -1024,7 +1027,7 @@ const openEditor = (group: OpenboxUserGroup | null) => {
         icon: '',
         keywords: [],
         members: [],
-        interval: '5m',
+        interval: '60s',
         tolerance: 100,
         testUrl: '',
       }
@@ -1062,7 +1065,7 @@ const ensureFailoverFields = (d: OpenboxUserGroup) => {
   d.mode = 'static'
   if (!d.lanes || !d.lanes.length) d.lanes = [makeLane(), makeLane()]
   for (const lane of d.lanes) if (lane.icon === undefined) lane.icon = ''
-  if (!d.interval || !/^\d+s$/.test(d.interval)) d.interval = '30s'
+  if (!d.interval || !/^\d+s$/.test(d.interval)) d.interval = '60s'
   if (typeof d.tolerance !== 'number') d.tolerance = 100
   if (d.testUrl === undefined) d.testUrl = ''
   d.failover = { ...FAILOVER_DEFAULTS, ...(d.failover || {}) }
@@ -1130,15 +1133,16 @@ const confirmDeleteLane = () => {
   pendingLane.value = null
   showLaneDelete.value = false
 }
-// 界面上按秒填,存的是 sing-box 认的 "30s"
+// 界面上按秒填,存的是 sing-box 认的 "Ns"。输入过程中不套最小值,
+// 否则输入 120 会先经过 1、12,每一步都被钳成 5,失焦时再统一校正。
 const intervalSeconds = computed<number>({
   get: () => {
     const m = /^(\d+)s$/.exec(draft.value?.interval || '')
-    return m ? Number(m[1]) : 30
+    return m ? Number(m[1]) : 60
   },
   set: (v: number) => {
     if (!draft.value) return
-    const n = Number.isFinite(v) ? Math.min(86400, Math.max(5, Math.floor(v))) : 30
+    const n = Number.isFinite(v) ? Math.min(86400, Math.max(0, Math.floor(v))) : 60
     draft.value.interval = `${n}s`
   },
 })
@@ -1190,7 +1194,7 @@ const onTypeChange = () => {
     d.mode = normalBackup?.mode ?? 'static'
     d.members = normalBackup ? [...normalBackup.members] : []
     d.keywords = normalBackup ? [...normalBackup.keywords] : []
-    d.interval = normalBackup?.interval && /^\d+m$/.test(normalBackup.interval) ? normalBackup.interval : '5m'
+    d.interval = normalBackup?.interval && /^(\d+)(s|m|h)$/.test(normalBackup.interval) ? normalBackup.interval : '60s'
     if (typeof d.tolerance !== 'number') d.tolerance = 100
   }
   checkedAvailable.value = []
@@ -1274,20 +1278,34 @@ const removeMember = (name: string) => {
   checkedSelected.value = checkedSelected.value.filter((n) => n !== name)
 }
 
-// 界面上填的是分钟数,存进去仍是 sing-box 认的 "3m" 形式。原来直接让用户手写
-// "3m" 这种带单位的字符串:写成 "3" 或 "3分钟" 都会被内核当成非法值,而界面上看不出
-// 哪种写法才对。
-const intervalMinutes = computed<number>({
+// 界面上统一填秒数,存进去是 sing-box 认的 "Ns" 形式。旧配置里的分钟 / 小时
+// 仍能换算成秒显示,保存时统一成秒,这样 120 秒等值可以直接设置。
+const intervalToSeconds = (value: string | undefined, fallback: number) => {
+  const m = /^(\d+)(ms|s|m|h)$/.exec(value || '')
+  if (!m) return fallback
+  const n = Number(m[1])
+  if (!Number.isFinite(n)) return fallback
+  return Math.round(n * (m[2] === 'ms' ? 0.001 : m[2] === 's' ? 1 : m[2] === 'm' ? 60 : 3600))
+}
+
+const urltestIntervalSeconds = computed<number>({
   get: () => {
-    const m = /^(\d+)/.exec(draft.value?.interval || '')
-    return m ? Number(m[1]) : 3
+    return intervalToSeconds(draft.value?.interval, 60)
   },
   set: (v: number) => {
     if (!draft.value) return
-    const n = Number.isFinite(v) && v >= 1 ? Math.floor(v) : 1
-    draft.value.interval = `${n}m`
+    // 不在每次按键时套用最小值:用户输入 120 时会先经过 1、12,立即钳成 5
+    // 就永远输不出 120。失焦时再统一校正到 5~86400。
+    const n = Number.isFinite(v) ? Math.min(86400, Math.max(0, Math.floor(v))) : 60
+    draft.value.interval = `${n}s`
   },
 })
+
+const normalizeIntervalSeconds = () => {
+  if (!draft.value) return
+  const n = intervalToSeconds(draft.value.interval, 60)
+  draft.value.interval = `${Math.min(86400, Math.max(5, n))}s`
+}
 
 const filteredSelected = computed(() => {
   const list = members.value
@@ -1457,7 +1475,7 @@ const createAutoGroups = async () => {
         // 关键词直接用国家目录里的那份,和地区词典是同一套词
         keywords: [...country.keywords],
         members: [],
-        ...(type === 'urltest' ? { interval: '5m', tolerance: 100 } : {}),
+        ...(type === 'urltest' ? { interval: '60s', tolerance: 100 } : {}),
       })
     }
   }
@@ -1511,6 +1529,8 @@ const persist = async (next: OpenboxUserGroup[]) => {
 const showTypeChangeConfirm = ref(false)
 const saveDraft = async (typeChangeConfirmed = false) => {
   if (!draft.value || saving.value) return
+  // 保存时再做一次范围校正,避免输入框尚未触发 blur 时把临时值写进配置。
+  if (draft.value.type === 'urltest' || draft.value.type === 'failover') normalizeIntervalSeconds()
   const name = draft.value.name.trim()
   if (!name) {
     showNotification({ content: 'groupNameRequired', type: 'alert-error' })

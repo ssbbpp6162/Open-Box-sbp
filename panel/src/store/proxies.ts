@@ -390,7 +390,7 @@ export const fetchProxies = async () => {
 
 // 自动择优组"当前选中的线路已经失效":内核在经这个组拨号失败时,只把该节点的延迟记录删掉,
 // 并不重新择优(sing-box protocol/group/urltest.go 的 DialContext),要等这个组自己的定时
-// 检查(默认 3 分钟)才切走;而组闲置久了连定时检查都会停。所以"选中的节点没有延迟记录"
+// 检查(按组设定的间隔)才切走;而组闲置久了连定时检查都会停。所以"选中的节点没有延迟记录"
 // 就是这条线路已经不通、而且没人来修的信号。
 export const isUrlTestGroupStale = (groupName: string) => {
   const group = proxyMap.value[groupName]

@@ -290,7 +290,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   releaseStatus?.()
 })
-// 自动择优组显示「检测间隔 5 分钟 · 容差 100 毫秒」;故障转移显示「检测间隔 30 秒 · 容差 100 毫秒 · 最近切换…」;
+// 自动择优组和故障转移组都显示实际检测间隔、容差及最近切换信息;
 // 手动组没有这两项
 const intervalText = (interval: string) => {
   const m = /^(\d+)(m|s)$/.exec(interval)
@@ -300,7 +300,7 @@ const intervalText = (interval: string) => {
 const testMeta = computed(() => {
   const g = managedGroup.value
   if (!g || (g.type !== 'urltest' && g.type !== 'failover')) return ''
-  const interval = g.interval || (g.type === 'failover' ? '30s' : '5m')
+  const interval = g.interval || '60s'
   const base = `${t('groupInterval')} ${intervalText(interval)} · ${t('groupTolerance')} ${g.tolerance ?? 100} ${t('groupUnitMs')}`
   const lastSwitch = g.type === 'failover' ? failoverLastSwitchText(props.name, failoverLanes.value) : ''
   return lastSwitch ? `${base} · ${lastSwitch}` : base
