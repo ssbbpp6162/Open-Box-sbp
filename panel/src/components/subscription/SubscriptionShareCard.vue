@@ -20,7 +20,7 @@
           <div class="flex min-w-0 items-center gap-2 text-sm font-medium"><span class="min-w-0 truncate">{{ share.name }}</span><span v-if="selectedNames(share).length" class="text-base-content/55 min-w-0 truncate font-normal">· {{ selectedNames(share).join('、') }}</span></div>
           <div class="text-base-content/55 mt-1 truncate font-mono text-xs">{{ shareUrl(share) }}</div>
         </div>
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-2">
           <button type="button" class="btn btn-ghost btn-sm btn-square" title="二维码" @click="openQr(share)"><QrCodeIcon class="h-4 w-4" /></button>
           <button type="button" class="btn btn-ghost btn-sm btn-square" title="复制链接" @click="copy(shareUrl(share))"><ClipboardDocumentIcon class="h-4 w-4" /></button>
           <button type="button" class="btn btn-ghost btn-sm btn-square" title="重新生成" :disabled="busy" @click="regenerate(share)"><ArrowPathIcon class="h-4 w-4" /></button>
