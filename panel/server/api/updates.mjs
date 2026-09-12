@@ -1,9 +1,7 @@
 import express from 'express'
-import { runDeploy } from './deploy-runner.mjs'
-import { serviceStatus } from '../system/service.mjs'
 import {
-  cancelUpdate, checkGeoUpdate, compareVersions, fetchLatestVersion, readChannel, readJsonFile, readMeta, readUpdateLogTail,
-  readUpdateStatus, refreshRulesets, startUpdate, writeJsonFile,
+  cancelUpdate, compareVersions, fetchLatestVersion, readChannel, readMeta, readUpdateLogTail,
+  readUpdateStatus, startUpdate,
 } from '../system/updater.mjs'
 
 const CHANNELS = new Set(['auto', 'direct', 'mirror'])
@@ -18,7 +16,7 @@ const makeLatestTagOrEmpty = (fetchImpl) => async () => {
   }
 }
 
-export const registerUpdateRoutes = (app, { store, ctx, paths, fetchImpl = globalThis.fetch } = {}) => {
+export const registerUpdateRoutes = (app, { ctx, paths, fetchImpl = globalThis.fetch } = {}) => {
   const router = express.Router({ caseSensitive: true })
   const latestTagOrEmpty = makeLatestTagOrEmpty(fetchImpl)
   router.use(express.json({ limit: '64kb' }))
@@ -58,56 +56,9 @@ export const registerUpdateRoutes = (app, { store, ctx, paths, fetchImpl = globa
     res.json(await cancelUpdate(ctx, paths))
   })
 
-  // GET /api/openbox/rulesets/check?channel= —— 探 Geo 规则集上游有没有新版
-  router.get('/rulesets/check', async (req, res) => {
-    const channel = String(req.query.channel || 'auto')
-    if (!CHANNELS.has(channel)) return res.status(400).json({ message: `channel must be one of ${[...CHANNELS].join(', ')}` })
-    try {
-      res.json(await checkGeoUpdate(ctx, paths, { fetchImpl }))
-    } catch (error) {
-      res.status(503).json({ message: error instanceof Error ? error.message : String(error) })
-    }
-  })
-
-  // Geo 规则集:立即刷新 {channel}(刷完若内核在跑就重启让它生效)
-  router.post('/rulesets/refresh', async (req, res) => {
-    const channel = String((req.body || {}).channel || 'auto')
-    if (!CHANNELS.has(channel)) return res.status(400).json({ message: `channel must be one of ${[...CHANNELS].join(', ')}` })
-    try {
-      const previous = await readJsonFile(ctx, paths.geoUpdateStatePath, {})
-      const result = await refreshRulesets(ctx, paths, { fetchImpl, channel })
-      let restarted = false
-      let restartMessage = ''
-      if (result.updated.length && (await serviceStatus(ctx, paths.initd.core)).running) {
-        const deployed = await runDeploy({ store, ctx, paths })
-        restarted = deployed.ok
-        if (!deployed.ok) restartMessage = deployed.message || `deploy failed at stage: ${deployed.stage}`
-      }
-      // 没下到新文件(全失败 / 没配置)就沿用上次记的版本
-      const versions = result.updated.length ? { ...(previous.versions || {}), ...result.versions } : previous.versions || {}
-      // source 记的是规则集来源(sagernet / metacubex),换来源后旧版本号不再可比;trigger 才是"谁发起的"
-      const record = { lastAt: new Date().toISOString(), updated: result.updated, failed: result.failed, restarted, trigger: 'manual', channel, versions, source: result.source }
-      await writeJsonFile(ctx, paths.geoUpdateStatePath, record)
-      // 一个规则集都没有(新装机内核还没成功部署过、或第一次启动被回滚成了无规则的直连配置):说清楚,别报"已更新 0 个"(GitHub #20)
-      const nothing = !result.updated.length && !result.failed.length
-      const message = result.message || (nothing ? '当前配置里没有 Geo 规则集:内核还没成功部署过。先启动一次内核,规则集会随第一次成功启动自动下载' : '')
-      res.json({ ok: result.failed.length === 0 && !restartMessage, ...result, ...(message ? { message } : {}), nothing, versions, restarted, restartMessage })
-    } catch (error) {
-      res.status(503).json({ message: error instanceof Error ? error.message : String(error) })
-    }
-  })
-
-  router.get('/rulesets/refresh/status', async (_req, res) => {
-    const state = await readJsonFile(ctx, paths.geoUpdateStatePath, {})
-    let count = 0
-    try {
-      const config = JSON.parse(await ctx.readFile(paths.configPath))
-      count = ((config.route && config.route.rule_set) || []).filter((e) => e && e.type === 'local').length
-    } catch { /* 没生成过配置 */ }
-    res.json({
-      count, lastAt: state.lastAt || '', updated: state.updated || [], failed: state.failed || [], restarted: Boolean(state.restarted),
-      versions: state.versions || {}, source: state.source || '',
-    })
+  // 旧页面/客户端不能再单独更新 Geo，防止与随包快照混用。
+  router.all(['/rulesets/check', '/rulesets/refresh', '/rulesets/refresh/status'], (_req, res) => {
+    res.status(410).json({ message: 'GeoSite / GeoIP 已随 Open-Box 统一更新，请使用 Open-Box 更新' })
   })
 
   app.use('/api/openbox', router)

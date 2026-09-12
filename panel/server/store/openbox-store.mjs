@@ -52,7 +52,6 @@ export const DEFAULT_PROFILE = {
   // 上次选的通道,记下来免得每次进页面都要重选
   updates: {
     openbox: { auto: false, hour: 4, channel: 'auto', checkChannel: 'auto' },
-    geo: { auto: false, hour: 4, days: 7, channel: 'auto', checkChannel: 'auto' },
   },
   routing: {
     proxyTag: 'PROXY',
@@ -107,11 +106,14 @@ export const createStore = ({ get, set, del }, { randomHex = defaultRandomHex } 
   const getProfile = () => {
     const raw = get(KEYS.profile)
     const stored = parseJsonOr(raw, {})
-    return deepMerge(DEFAULT_PROFILE, isPlainObject(stored) ? stored : {})
+    const profile = deepMerge(DEFAULT_PROFILE, isPlainObject(stored) ? stored : {})
+    if (isPlainObject(profile.updates)) delete profile.updates.geo
+    return profile
   }
 
   const setProfile = (patch) => {
     const merged = deepMerge(getProfile(), patch || {})
+    if (isPlainObject(merged.updates)) delete merged.updates.geo
     set(KEYS.profile, JSON.stringify(merged))
     return merged
   }

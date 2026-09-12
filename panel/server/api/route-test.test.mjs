@@ -19,11 +19,11 @@ const config = {
     ],
     final: 'dns-proxy',
   },
-  route: { rule_set: [{ type: 'local', tag: 'geosite-openai', path: `${paths.rulesetDir}/geosite-openai.srs` }] },
+  route: { rule_set: [{ type: 'local', tag: 'geosite-openai', path: `${paths.geoDir}/geosite-openai.srs` }] },
 }
 
 test('decideDnsServer:域名条件本地判;规则集经内核;都不中落到 final', async () => {
-  const srs = `${paths.rulesetDir}/geosite-openai.srs`
+  const srs = `${paths.geoDir}/geosite-openai.srs`
   const ctx = createMockContext({
     files: { [paths.singbox]: 'x', [srs]: 'x' },
     execResults: { [`${paths.singbox} rule-set match -f binary ${srs} api.openai.com`]: { code: 0, stderr: 'match rules.\n' } },
@@ -38,7 +38,7 @@ test('decideDnsServer:域名条件本地判;规则集经内核;都不中落到 f
 
 test('POST /route-test:内核解析 + 真实访问 + 在连接表里找到这条连接的链路', async () => {
   // 规则集文件要在:第一条 dns 规则是 rule_set,缺文件会被判成"没法确认"而不是"不命中"
-  const ctx = createMockContext({ files: { [paths.configPath]: JSON.stringify(config), [paths.singbox]: 'x', [`${paths.rulesetDir}/geosite-openai.srs`]: 'x' } })
+  const ctx = createMockContext({ files: { [paths.configPath]: JSON.stringify(config), [paths.singbox]: 'x', [`${paths.geoDir}/geosite-openai.srs`]: 'x' } })
   const fetchImpl = async (url) => {
     if (url.includes('/dns/query')) return { ok: true, status: 200, json: async () => ({ Answer: [{ data: '39.156.66.10' }] }) }
     if (url.includes('/connections')) return { ok: true, status: 200, json: async () => ({ connections: [
@@ -223,7 +223,7 @@ test('fake-ip:代理侧解析回 198.15.x.x 就标出是 detour 此刻落到的�
 })
 
 test('POST /route-test:每次查询都先清内核 DNS 缓存,而且清在解析之前', async () => {
-  const ctx = createMockContext({ files: { [paths.configPath]: JSON.stringify(config), [paths.singbox]: 'x', [`${paths.rulesetDir}/geosite-openai.srs`]: 'x' } })
+  const ctx = createMockContext({ files: { [paths.configPath]: JSON.stringify(config), [paths.singbox]: 'x', [`${paths.geoDir}/geosite-openai.srs`]: 'x' } })
   const run = async (body) => {
     const calls = []
     const fetchImpl = async (url, init) => {
@@ -260,7 +260,7 @@ test('POST /route-test:每次查询都先清内核 DNS 缓存,而且清在解析
 })
 
 test('档案开了 IPv6:再查一次 AAAA,单独放 answers6;没开就没有这个字段', async () => {
-  const ctx = createMockContext({ files: { [paths.configPath]: JSON.stringify(config), [paths.singbox]: 'x', [`${paths.rulesetDir}/geosite-openai.srs`]: 'x' } })
+  const ctx = createMockContext({ files: { [paths.configPath]: JSON.stringify(config), [paths.singbox]: 'x', [`${paths.geoDir}/geosite-openai.srs`]: 'x' } })
   const asked = []
   const fetchImpl = async (url, init) => {
     if (url.includes('/dns/query')) {
@@ -322,7 +322,7 @@ test('decideDnsServer:带来源条件的 DNS 规则——没给来源 IP 判不�
 
 test('S4:指定终端来源时,响应明确标出 DNS 判定是按终端预测的、解析和访问是面板自己发起的,没有该终端的来源(不冒充该终端实测)', async () => {
   const cfg = { ...config, dns: { ...config.dns, rules: [{ source_ip_cidr: ['192.168.3.9/32'], server: 'dns-policy-0' }, ...config.dns.rules] } }
-  const ctx = createMockContext({ files: { [paths.configPath]: JSON.stringify(cfg), [paths.singbox]: 'x', [`${paths.rulesetDir}/geosite-openai.srs`]: 'x' } })
+  const ctx = createMockContext({ files: { [paths.configPath]: JSON.stringify(cfg), [paths.singbox]: 'x', [`${paths.geoDir}/geosite-openai.srs`]: 'x' } })
   const calls = []
   const fetchImpl = async (url) => {
     calls.push(String(url))

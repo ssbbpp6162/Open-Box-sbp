@@ -213,6 +213,18 @@ cp -R "$PANEL_DIR/dist" "$STAGE/panel/dist"
 log "打包面板后端 (pnpm deploy --prod)..."
 (cd "$PANEL_DIR" && corepack pnpm --filter=./server deploy --prod "$STAGE/panel/server")
 
+# 全量 Geo 快照在构建机准备，双架构 CI 使用同一份提交；设备不访问上游。
+GEO_BUNDLE="${OPENBOX_GEO_BUNDLE_DIR:-$CACHE_DIR/geodata}"
+if [ -z "${OPENBOX_GEO_BUNDLE_DIR:-}" ]; then
+  python3 "$SCRIPT_DIR/bundle-geodata.py" "$GEO_BUNDLE"
+fi
+python3 "$SCRIPT_DIR/bundle-geodata.py" --verify "$GEO_BUNDLE"
+mkdir -p "$STAGE/panel/server/resources"
+# pnpm deploy 可能已带上本地开发数据，必须用本次核验过的快照替换。
+rm -rf "$STAGE/panel/server/resources/geodata"
+cp -R "$GEO_BUNDLE" "$STAGE/panel/server/resources/geodata"
+python3 "$SCRIPT_DIR/check-geodata.py" "$STAGE/panel/server/resources/geodata" "${OPENBOX_GEO_CHECK_BINARY:-$PANEL_DIR/.tools/sing-box}" "$SINGBOX_VERSION"
+
 # ---- 3. 下载并解出 musl Node ----
 NODE_TARBALL="node-v${NODE_VERSION}-linux-${ARCH}-musl.tar.xz"
 NODE_URL="https://unofficial-builds.nodejs.org/download/release/v${NODE_VERSION}/${NODE_TARBALL}"
@@ -352,6 +364,9 @@ cat > "$STAGE/meta.json" <<EOF
   "builtAt": "$BUILT_AT"
 }
 EOF
+
+# 生成独立更新组件与清单，并补全 meta.json 中的 Geo 版本；完整安装包仍带齐全部组件。
+python3 "$SCRIPT_DIR/release-components.py" "$STAGE" "$OUTDIR"
 
 # ---- 10. 打包:带版本号的资产(留档)+ 不带版本号的稳定资产名(install.sh /
 # update.sh 依赖它,见 Important 5——两者内容完全一致,只是文件名不同,避免

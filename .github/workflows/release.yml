@@ -14,6 +14,21 @@ env:
   OPENBOX_REPO: liandu2024/Open-Box
 
 jobs:
+  geodata:
+    name: Freeze complete Geo snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and verify GeoSite / GeoIP at one commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/bundle-geodata.py geodata
+      - uses: actions/upload-artifact@v4
+        with:
+          name: geodata
+          path: geodata/
+          if-no-files-found: error
+
   kernel:
     name: Build kernel (${{ matrix.arch }})
     runs-on: ubuntu-latest
@@ -55,7 +70,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.arch }})
-    needs: kernel
+    needs: [kernel, geodata]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -126,10 +141,15 @@ jobs:
           CI: 'true'
         run: corepack pnpm run check:config
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: geodata
+          path: geodata
       - name: Build release tarball
         env:
           OPENBOX_VERSION: ${{ github.ref_name }}
           OPENBOX_KERNEL_BUILD_DIR: ${{ github.workspace }}/kernel-build
+          OPENBOX_GEO_BUNDLE_DIR: ${{ github.workspace }}/geodata
         run: bash scripts/build-release.sh ${{ matrix.arch }} dist-release
 
       # build-release.sh 每个架构都产出两份内容完全一致的 tarball(+sha256):带版本号
@@ -148,6 +168,7 @@ jobs:
           path: |
             dist-release/*.tar.gz
             dist-release/*.sha256
+            dist-release/*components.json
           if-no-files-found: error
           retention-days: 7
 
@@ -190,6 +211,9 @@ jobs:
             echo "- sing-box 内核版本:\`$SINGBOX_VERSION\`(从本次仓库源码补丁构建，完整 CGO/musl 静态链接)"
             echo "- Node 运行时版本:\`$NODE_VERSION\`(musl 构建,glibc 版本在 OpenWrt 上无法运行)"
             echo ""
+            echo "- 完整安装包包含 sing-box 内核与全部 GeoSite / GeoIP 数据，首次启动无需另行下载 Geo 数据。"
+            echo "- 升级先校验组件版本及文件，仅下载变化或损坏的组件；全部从本仓库 Release 获取。"
+            echo ""
             echo "### 硬件要求"
             echo ""
             echo "- CPU 架构:x86_64 或 arm64(aarch64)"
@@ -221,3 +245,4 @@ jobs:
           files: |
             dist-release/*.tar.gz
             dist-release/*.sha256
+            dist-release/*components.json

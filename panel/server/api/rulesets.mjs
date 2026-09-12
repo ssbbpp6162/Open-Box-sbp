@@ -1,12 +1,12 @@
 import express from 'express'
 import { loadRuleList } from '../system/rule-lists.mjs'
 import { normalizeRouting } from '../engine/routing-model.mjs'
-import { downloadRuleset, isSafeRulesetTag } from '../system/rulesets.mjs'
+import { rulesetPath, isSafeRulesetTag } from '../system/rulesets.mjs'
 
 // 「详情」:一个 geosite/geoip 分类里到底有哪些域名/IP。
 //
 // .srs 是编译过的二进制,面板自己解不开——但内核自带解码器(sing-box rule-set
-// decompile),而内核就在旁边。所以这里的做法是:必要时把 .srs 下下来,交给内核转成
+// decompile),而内核就在旁边。所以这里直接取包内 .srs，交给内核转成
 // JSON,再按页返回。这样"看到的"和"内核真正会匹配的"是同一份数据,不存在第二套解析
 // 逻辑跑偏的可能。
 //
@@ -35,18 +35,12 @@ const flatten = (json) => {
   return out
 }
 
-export const loadEntries = async (ctx, paths, tag, fetchImpl) => {
+export const loadEntries = async (ctx, paths, tag) => {
   const hit = cache.get(tag)
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.entries
 
-  const srsPath = `${paths.rulesetDir}/${tag}.srs`
-  if (!(await ctx.exists(srsPath))) {
-    // 没部署过的分类本地不会有,现取一份。取回来就放在正式目录里:下次部署真用到它
-    // 时正好省一次下载,而多出来的文件本身也是一个合法的规则集。
-    const data = await downloadRuleset(fetchImpl, tag)
-    await ctx.mkdirp(paths.rulesetDir)
-    await ctx.writeFileBinary(srsPath, data)
-  }
+  const srsPath = rulesetPath(paths, tag)
+  if (!(await ctx.exists(srsPath))) throw new Error(`安装包缺少规则集 ${tag}，请更新或重新安装 Open-Box`)
 
   const jsonPath = `${paths.dataDir}/tmp/${tag}.json`
   await ctx.mkdirp(`${paths.dataDir}/tmp`)
@@ -83,7 +77,7 @@ const buildPolicyEntries = async (ctx, paths, policy, fetchImpl) => {
         out.push({ type: e.type, family: FAMILY_OF(e.type), content: e.value, source: tag })
       }
     } catch {
-      // 某个规则集拉不到/解不开:其余的照样列,把它记在 missing 里让界面提示
+      // 某个规则集缺失/解不开:其余的照样列,把它记在 missing 里让界面提示
       missing.push(tag)
     }
   }

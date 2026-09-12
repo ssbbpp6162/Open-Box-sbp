@@ -33,7 +33,7 @@ OpenWrt 上的一体化透明代理:一条命令装完 sing-box 内核和管理�
 
 ![目标分流](docs/pic/settings-policies.webp)
 
-**后端设置**:IPv6、测速地址、自身升级和规则集更新的计划任务都在这里。
+**后端设置**:IPv6、测速地址和 Open-Box 统一更新的计划任务都在这里。
 
 ![后端设置](docs/pic/settings-backend.webp)
 
@@ -41,12 +41,12 @@ OpenWrt 上的一体化透明代理:一条命令装完 sing-box 内核和管理�
 
 - **订阅**:Clash YAML 与 base64 分享链接都支持,协议覆盖 shadowsocks / vmess / vless(含 REALITY)/ trojan / hysteria2 / tuic / anytls / wireguard。导入尽量宽松——自签、过期、张冠李戴的证书都不拦,只要节点本身能用就让它通。
 - **节点组**:自动择优(url-test)和手动选择(select)两种;动态组按关键词自动跟着订阅走,静态组手工挑。
-- **目标分流**:站点集按域名 / 域名后缀 / 关键词 / 规则集 / 规则集链接 / IP 段匹配,出站在代理页点选,选完即成为默认。规则集来自 MetaCubeX/meta-rules-dat 的 sing 分支,geosite 1899 类、geoip 260 类,可按需下载;规则集链接则可以直接填一个现成的名单网址,Clash 的 `.list` 和 mihomo 的 `.mrs` 都认,填完就显示条数、点开能看内容。
+- **目标分流**:站点集按域名 / 域名后缀 / 关键词 / 规则集 / 规则集链接 / IP 段匹配,出站在代理页点选,选完即成为默认。规则集来自 MetaCubeX/meta-rules-dat 的 sing 分支,完整 GeoSite / GeoIP 数据随安装包内置，启动与查看分类无需下载;规则集链接则可以直接填一个现成的名单网址,Clash 的 `.list` 和 mihomo 的 `.mrs` 都认,填完就显示条数、点开能看内容。
 - **终端分流**:按局域网来源 IP 给指定设备单独指定出站。
 - **DNS 接管**:三种模式——接管 dnsmasq 转发(默认)、防火墙劫持、完全禁用。国内域名走本地解析拿就近 CDN,走代理的域名经代理侧解析,两边分开。
 - **共享网络**:把内核的入站开放给局域网里的其它设备当代理用。
 - **流量统计**:每日流量按终端设备 / 节点 / 访问目标三个维度下钻。
-- **自动更新**:Open-Box 自身与 Geosite / GeoIP 都能按天定时检查,有新版才升。
+- **自动更新**:Open-Box 可按天定时检查新版本，程序、sing-box 内核和 GeoSite / GeoIP 数据一起管理；已校验且版本一致的组件不重复下载。
 - **LuCI 兜底页**:面板打不开时,从路由器自带界面一键停代理、恢复直连。
 
 ## 硬件要求
@@ -94,7 +94,9 @@ curl -fsSL https://raw.githubusercontent.com/liandu2024/Open-Box/main/scripts/up
 
 强制直连 GitHub 加 `-s -- --direct`,强制走加速加 `-s -- --mirror [前缀]`。不带参数时沿用安装时选的下载通道。
 
-升级保留 `data/`(订阅、规则、面板密码)和已生效的运行配置,只替换程序本体。升级前内核在跑的话,升级完会按新版本重新生成配置并自动把内核带起来。
+升级保留 `data/`(订阅、规则、面板密码)和已生效的运行配置,先读取本仓库 Release 的组件清单，再校验本地 sing-box 与 GeoSite / GeoIP 的版本和文件。相同且完整的组件直接复用，变化、缺失或损坏的组件才下载。程序、内核、Geo 数据均从 `liandu2024/Open-Box` 的 Release 获取，设备无需连接 SagerNet 或 MetaCubeX。升级前内核在跑的话，升级完会重新生成配置并自动恢复。
+
+完整安装包始终包含程序、Node 运行时、sing-box 内核和全部 GeoSite / GeoIP 数据；新安装无需另行下载 Geo 数据。Geo 数据与当前发布版本绑定，不再提供单独更新卡片或后台任务。旧版更新器首次升级仍使用完整包，升级到支持组件清单的版本后，后续升级按组件下载。
 
 ## 卸载
 

@@ -20,7 +20,7 @@ const DECOMPILED = JSON.stringify({
 // 内核解码那一步用 mock ctx 顶掉:exec 只记录调用,输出文件预先摆在 files 里。
 const okCtx = (over = {}) => createMockContext({
   files: {
-    [`${paths.rulesetDir}/geosite-google.srs`]: 'binary',
+    [`${paths.geoDir}/geosite-google.srs`]: 'binary',
     [`${paths.dataDir}/tmp/geosite-google.json`]: DECOMPILED,
     ...over,
   },
@@ -76,22 +76,17 @@ test('搜索与分页只作用在匹配结果上', async () => {
   }
 })
 
-test('本地没有的分类现下一份,顺手留在正式目录里', async () => {
-  const ctx = createMockContext({ files: { [`${paths.dataDir}/tmp/geosite-openai.json`]: DECOMPILED } })
-  let asked = ''
-  const fetchImpl = async (url) => {
-    asked = url
-    return { ok: true, arrayBuffer: async () => new TextEncoder().encode('srs').buffer }
-  }
-  const { baseUrl, close } = await startApp(ctx, fetchImpl)
+test('安装包缺少分类时清楚报错，不在线下载也不修改旧数据', async () => {
+  const ctx = createMockContext()
+  let asked = false
+  const { baseUrl, close } = await startApp(ctx, async () => { asked = true; throw new Error('no network') })
   try {
     const res = await fetch(`${baseUrl}/api/openbox/rulesets/entries?tag=geosite-openai`)
-    assert.equal(res.status, 200)
-    assert.match(asked, /meta-rules-dat\/sing\/geo\/geosite\/openai\.srs$/)
-    assert.ok(ctx.writes.some((w) => w.path === `${paths.rulesetDir}/geosite-openai.srs`))
-  } finally {
-    await close()
-  }
+    assert.equal(res.status, 503)
+    assert.match((await res.json()).message, /安装包缺少规则集/)
+    assert.equal(asked, false)
+    assert.equal(ctx.writes.length, 0)
+  } finally { await close() }
 })
 
 test('名字不合法直接 400——tag 会被拼进下载地址和文件名', async () => {
@@ -108,8 +103,8 @@ test('名字不合法直接 400——tag 会被拼进下载地址和文件名', 
 
 test('解码失败 → 503,把内核的话原样带出去', async () => {
   const ctx = createMockContext({
-    files: { [`${paths.rulesetDir}/geosite-google.srs`]: 'binary' },
-    execResults: { [`${paths.singbox} rule-set decompile --output ${paths.dataDir}/tmp/geosite-google.json ${paths.rulesetDir}/geosite-google.srs`]: { code: 1, stderr: 'bad magic' } },
+    files: { [`${paths.geoDir}/geosite-google.srs`]: 'binary' },
+    execResults: { [`${paths.singbox} rule-set decompile --output ${paths.dataDir}/tmp/geosite-google.json ${paths.geoDir}/geosite-google.srs`]: { code: 1, stderr: 'bad magic' } },
   })
   const { baseUrl, close } = await startApp(ctx)
   try {

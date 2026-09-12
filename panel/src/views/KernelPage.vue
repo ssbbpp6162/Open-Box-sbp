@@ -38,13 +38,9 @@
           <DiagnosticsCard />
         </template>
 
-        <!-- Open-Box 自身更新 / Geo 规则集更新(各带自动更新计划) -->
+        <!-- 程序、内核、Geo 数据统一更新 -->
         <template v-if="profile">
           <OpenboxUpdateCard
-            :profile="profile"
-            :patch-profile="patchProfile"
-          />
-          <GeoUpdateCard
             :profile="profile"
             :patch-profile="patchProfile"
           />
@@ -58,7 +54,6 @@
 import { refreshServiceStatus } from '@/composables/kernelService'
 import type { OpenboxKernelVersion, OpenboxProfile, OpenboxServiceStatus } from '@/api/openbox'
 import { fetchKernelVersion, fetchProfile, saveProfile } from '@/api/openbox'
-import GeoUpdateCard from '@/components/kernel/GeoUpdateCard.vue'
 import KernelServiceCard from '@/components/kernel/KernelServiceCard.vue'
 import NodeDirectCard from '@/components/kernel/NodeDirectCard.vue'
 import OpenboxUpdateCard from '@/components/kernel/OpenboxUpdateCard.vue'

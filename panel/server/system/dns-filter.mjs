@@ -3,7 +3,7 @@ import https from 'node:https'
 import { Readable } from 'node:stream'
 import fs from 'node:fs/promises'
 import { assertPublicUrl, pinnedLookup } from '../api/net-guard.mjs'
-import { allowDomainCondition, DNS_FILTER_RUNTIME, filterKey, filterSettings, parseDnsFilter, validateDnsFilter } from '../engine/dns-filter.mjs'
+import { allowDomainCondition, DNS_FILTER_RUNTIME, DNS_FILTER_RULESET_PREFIX, filterKey, filterSettings, parseDnsFilter, validateDnsFilter } from '../engine/dns-filter.mjs'
 import { fetchRuleList } from './rule-lists.mjs'
 
 export const FILTER_LIST_STATE = 'openbox/dns-filter-lists'
@@ -118,7 +118,7 @@ export const prepareDnsFilter = async ({ store, ctx, paths, force = false, fetch
   const compile = async (label, rules) => {
     if (!rules.length) return null
     const source = JSON.stringify({ version: 4, rules })
-    const tag = `dns-filter-${label}-${filterKey(source)}`
+    const tag = `${DNS_FILTER_RULESET_PREFIX}${label}-${filterKey(source)}`
     const path = `${dir}/${tag}.srs`
     if (!(await ctx.exists(path))) {
       const tmp = `${dir}/${tag}.json`

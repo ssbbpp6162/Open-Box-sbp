@@ -9,6 +9,11 @@ export const DNS_FILTER_DEFAULT = {
   autoUpdate: { enabled: false, days: 1, hour: 4 },
 }
 export const DNS_FILTER_RUNTIME = 'openbox/dns-filter-runtime'
+export const DNS_FILTER_RULESET_PREFIX = 'dns-filter-'
+// 本地编译产物的标签，不属于 Geo 规则集下载源。末尾为 filterKey 的 16 位摘要。
+export const isDnsFilterRulesetTag = (tag) => typeof tag === 'string'
+  && tag.startsWith(DNS_FILTER_RULESET_PREFIX)
+  && /^[A-Za-z0-9_-]+-[a-f0-9]{16}$/.test(tag.slice(DNS_FILTER_RULESET_PREFIX.length))
 export const filterSettings = (profile) => ({
   ...structuredClone(DNS_FILTER_DEFAULT),
   ...profile?.dns?.filter,

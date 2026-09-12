@@ -247,24 +247,39 @@ const configWithRulesets = {
   },
 }
 
-test('规则集缺失时会先补齐,再进入校验', async () => {
+test('新安装直接使用随包 Geo 数据，无需网络或旧来源标记', async () => {
   const ctx = okCtx()
-  const fetched = []
-  const fetchImpl = async (url) => {
-    fetched.push(url)
-    return { ok: true, status: 200, arrayBuffer: async () => Buffer.from('SRS-BINARY') }
-  }
-  const r = await deployConfig(ctx, paths, { config: configWithRulesets, profile, fetchImpl })
+  ctx.files[`${paths.geoDir}/geosite-cn.srs`] = Buffer.from('SRS-BINARY')
+  const current = structuredClone(configWithRulesets)
+  const r = await deployConfig(ctx, paths, { config: current, profile, fetchImpl: async () => { throw new Error('offline') } })
   assert.equal(r.ok, true)
   assert.equal(r.stage, 'running')
-  // 一次规则集下载;下到之后另探一次上游版本记「当前版本」(GitHub #33),那次是 GitHub API,不是规则集
-  const rulesetFetches = fetched.filter((u) => !String(u).includes('api.github.com'))
-  assert.equal(rulesetFetches.length, 1)
-  assert.ok(fetched.some((u) => String(u).includes('api.github.com/repos/MetaCubeX/meta-rules-dat/commits/sing')), '下到规则集后要探一次版本')
-  assert.ok(Buffer.isBuffer(ctx.files['/opt/open-box/data/rulesets/geosite-cn.srs']))
+  assert.equal(current.route.rule_set[0].path, `${paths.geoDir}/geosite-cn.srs`)
+  assert.ok(!ctx.writes.some(w => w.path.endsWith('.srs')))
 })
 
-test('规则集拉不下来 → stage:rulesets,且不动系统(没落盘、没改 DNS/防火墙、没重启内核)', async () => {
+test('新安装开启 DNS 过滤：保留编译产物，补齐 Geo 后可通过部署启动', async () => {
+  const ctx = okCtx()
+  ctx.files[`${paths.geoDir}/geosite-cn.srs`] = Buffer.from('GEO-SRS')
+  const tag = 'dns-filter-allow-26efdcf0c0739bae'
+  const filterPath = `${paths.dataDir}/dns-filter/${tag}.srs`
+  ctx.files[filterPath] = Buffer.from('COMPILED-FILTER')
+  const filtering = structuredClone(configWithRulesets)
+  filtering.route.rule_set.unshift({ type: 'local', tag, format: 'binary', path: filterPath })
+  const fetched = []
+  const result = await deployConfig(ctx, paths, { config: filtering, profile, fetchImpl: async (url) => {
+    fetched.push(String(url))
+    return { ok: true, status: 200, arrayBuffer: async () => Buffer.from('GEO-SRS') }
+  } })
+  assert.equal(result.ok, true)
+  assert.equal(result.stage, 'running')
+  assert.ok(cmds(ctx).includes('/etc/init.d/openbox restart'))
+  assert.ok(ctx.files[paths.configPath])
+  assert.equal(ctx.files[filterPath].toString(), 'COMPILED-FILTER')
+  assert.ok(fetched.every((url) => !url.includes('dns-filter')))
+})
+
+test('安装包缺少规则集 → stage:rulesets,且不动系统(没落盘、没改 DNS/防火墙、没重启内核)', async () => {
   const ctx = okCtx()
   const fetchImpl = async () => { throw new Error('ECONNREFUSED') }
   const r = await deployConfig(ctx, paths, { config: configWithRulesets, profile, fetchImpl })
@@ -279,8 +294,8 @@ test('规则集拉不下来 → stage:rulesets,且不动系统(没落盘、没�
 
 test('规则集已存在时不再下载(GitHub 连不上也能照常部署)', async () => {
   const ctx = okCtx()
-  ctx.files['/opt/open-box/data/rulesets/geosite-cn.srs'] = Buffer.from('already-here')
-  // 目录标记:这个文件就是当前来源(MetaCubeX)下的;没有标记的老安装目录会整体重下(rulesets.test 另有用例)
+  ctx.files[`${paths.geoDir}/geosite-cn.srs`] = Buffer.from('already-here')
+  // 旧来源标记不参与选择，始终使用包内数据。
   ctx.files['/opt/open-box/data/rulesets/.source'] = 'metacubex\n'
   let called = false
   const fetchImpl = async () => { called = true; throw new Error('不该被调用') }
@@ -521,7 +536,7 @@ test('config.meta.json 记下第一层的判定:DNS 转发计划、入口原生�
 test('部署时把走代理站点集的 geosite 解码进转发名单:元数据记实际 domains、条目数和超集说明;解不开就 all 并说明(第三轮 阶段 2)', async () => {
   const withRulesets = (json) => {
     const ctx = okCtx({ 'uci -q show dhcp.@dnsmasq[0]': { code: 0, stdout: 'dhcp.cfg=dnsmasq\n' } })
-    ctx.files[`${paths.rulesetDir}/geosite-youtube.srs`] = 'srs'
+    ctx.files[`${paths.geoDir}/geosite-youtube.srs`] = 'srs'
     ctx.files[`${paths.dataDir}/tmp/geosite-youtube.dns-forward.json`] = JSON.stringify(json)
     return ctx
   }

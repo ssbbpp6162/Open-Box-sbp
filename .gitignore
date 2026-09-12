@@ -9,3 +9,5 @@ panel/data/
 .dev-panel.log
 panel/.tools/sing-box
 .build-cache/
+panel/server/resources/geodata/
+__pycache__/

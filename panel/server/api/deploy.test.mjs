@@ -22,7 +22,7 @@ const cmds = (ctx) => ctx.calls.map((c) => [c.cmd, ...c.args].join(' '))
 // 内核 status 默认视为 running,方便"成功路径"测试;各测试按需通过 over 覆盖具体命令的结果。
 // paths.singbox 默认存在,否则 deployConfig 重启前的预检(Important 4)会先拦截。
 const okCtx = (over = {}) => createMockContext({
-  files: { [paths.singbox]: '#!/bin/sh\n', [TUN_DEVICE]: '' },
+  files: { [paths.singbox]: '#!/bin/sh\n', [TUN_DEVICE]: '', [`${paths.geoDir}/geosite-cn.srs`]: 'SRS', [`${paths.geoDir}/geoip-cn.srs`]: 'SRS' },
   execResults: {
     '/etc/init.d/openbox status': { code: 0, stdout: 'running' },
     ...over,
@@ -189,7 +189,7 @@ test('POST /api/openbox/deploy 冲突路径 → 409,未写任何文件,不 enabl
 })
 
 test('POST /api/openbox/deploy 校验失败 → 409,给 badTags,不写正式配置、不重启', async () => {
-  const ctx = createMockContext({ defaultExec: { code: 1, stderr: 'FATAL: unknown method: x' } })
+  const ctx = createMockContext({ files: { [`${paths.geoDir}/geosite-cn.srs`]: 'SRS', [`${paths.geoDir}/geoip-cn.srs`]: 'SRS' }, defaultExec: { code: 1, stderr: 'FATAL: unknown method: x' } })
   const store = memStore()
   store.setNodes([BAD_NODE])
   const { baseUrl, close } = await startApp(ctx, store)
@@ -215,6 +215,7 @@ test('POST /api/openbox/deploy 校验失败 → 409,给 badTags,不写正式配�
 
 test('POST /api/openbox/deploy 校验失败但旧内核还在跑(比如点的是重启)→ 不动开机自启', async () => {
   const ctx = createMockContext({
+    files: { [`${paths.geoDir}/geosite-cn.srs`]: 'SRS', [`${paths.geoDir}/geoip-cn.srs`]: 'SRS' },
     defaultExec: { code: 1, stderr: 'FATAL: unknown method: x' },
     execResults: { '/etc/init.d/openbox status': { code: 0, stdout: 'running' } },
   })
@@ -232,7 +233,7 @@ test('POST /api/openbox/deploy 校验失败但旧内核还在跑(比如点的是
 
 test('POST /api/openbox/deploy 重启失败 → 500,回滚命令出现,disable 内核开机自启', async () => {
   const ctx = createMockContext({
-    files: { [paths.singbox]: '#!/bin/sh\n', [TUN_DEVICE]: '' },
+    files: { [paths.singbox]: '#!/bin/sh\n', [TUN_DEVICE]: '', [`${paths.geoDir}/geosite-cn.srs`]: 'SRS', [`${paths.geoDir}/geoip-cn.srs`]: 'SRS' },
     execResults: {
       '/etc/init.d/openbox restart': { code: 1, stderr: 'start failed' },
     },
@@ -258,7 +259,7 @@ test('POST /api/openbox/deploy 重启失败 → 500,回滚命令出现,disable �
 
 test('POST /api/openbox/deploy 启动后未 running(verify 阶段)→ 500,同样 disable', async () => {
   const ctx = createMockContext({
-    files: { [paths.singbox]: '#!/bin/sh\n', [TUN_DEVICE]: '' },
+    files: { [paths.singbox]: '#!/bin/sh\n', [TUN_DEVICE]: '', [`${paths.geoDir}/geosite-cn.srs`]: 'SRS', [`${paths.geoDir}/geoip-cn.srs`]: 'SRS' },
     execResults: { '/etc/init.d/openbox status': { code: 1, stdout: 'inactive' } },
   })
   const { baseUrl, close } = await startApp(ctx)

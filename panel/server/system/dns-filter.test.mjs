@@ -14,6 +14,7 @@ import { prepareDnsFilter } from './dns-filter.mjs'
 import { buildFilterConfig } from '../engine/dns-filter.mjs'
 import { buildResponse, parseQuery } from './dns-rewrite-server.mjs'
 import { createDnsEventParser } from './dns-filter-observer.mjs'
+import { ensureRulesets } from './rulesets.mjs'
 
 const binary = path.resolve(import.meta.dirname, '../../.tools/sing-box')
 const available = await fs.access(binary).then(() => true, () => false)
@@ -45,6 +46,9 @@ test('native 1.14 DNS filters, exceptions, AAAA, regex, rewrite priority and obs
   })
   const port = await freePort(), api = await freePort()
   const config = { log: { level: 'warn' }, dns: { servers: [{ tag: 'up', type: 'udp', server: '127.0.0.1', server_port: upstream.address().port }], rules: [{ domain: ['local.test'], action: 'predefined', answer: ['local.test. 60 IN A 192.168.3.1'] }, ...filtering.rules], final: 'up' }, inbounds: [{ type: 'direct', tag: 'dns-in', listen: '127.0.0.1', listen_port: port }], route: { rules: [{ inbound: ['dns-in'], action: 'hijack-dns' }], rule_set: filtering.sets }, experimental: { clash_api: { external_controller: `127.0.0.1:${api}` } } }
+  const ensured = await ensureRulesets(ctx, config, { fetchImpl: async () => { throw new Error('本地过滤产物不应回源 Geo') } })
+  assert.equal(ensured.ok, true, ensured.message)
+  assert.deepEqual(ensured.downloaded, [])
   const file = path.join(dir, 'config.json')
   await fs.writeFile(file, JSON.stringify(config))
   const core = spawn(binary, ['run', '-c', file], { stdio: ['ignore', 'pipe', 'pipe'] })

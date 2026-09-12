@@ -1,3 +1,4 @@
+import { rulesetPath } from './rulesets.mjs'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { expandDnsForward, forwardConfText, regexForwardSuffixes, regexLiteralSuffix, ruleSetToForwardEntries } from './dns-forward.mjs'
@@ -62,7 +63,7 @@ test('ruleSetToForwardEntries:domain / 不带点后缀 → /x/,带点后缀 → 
 const withDecoded = (files, tags) => {
   const all = { [paths.singbox]: 'x' }
   for (const [tag, json] of Object.entries(tags)) {
-    all[`${paths.rulesetDir}/${tag}.srs`] = 'srs'
+    all[rulesetPath(paths, tag)] = 'srs'
     all[`${paths.dataDir}/tmp/${tag}.dns-forward.json`] = JSON.stringify(json)
   }
   return createMockContext({ files: { ...all, ...files } })

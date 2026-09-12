@@ -124,3 +124,14 @@ test('线路选择快照:键名带 openbox/ 前缀(受保护,不会被设置同�
   store.setSelectionsSnapshot({ c: 'd' })
   assert.ok(!m.has('openbox.selections'))
 })
+
+test('旧数据或旧备份的 Geo 自动更新计划退出使用，其他更新和 DNS 计划保留', () => {
+  const { store, m } = memStore()
+  m.set(KEYS.profile, JSON.stringify({ updates: { geo: { auto: true }, openbox: { auto: true } } }))
+  assert.equal(store.getProfile().updates.geo, undefined)
+  assert.equal(store.getProfile().updates.openbox.auto, true)
+  const imported = store.setProfile({ updates: { geo: { auto: true, hour: 4 } }, dns: { filter: { autoUpdate: { enabled: true } } } })
+  assert.equal(imported.updates.geo, undefined)
+  assert.equal(imported.updates.openbox.auto, true)
+  assert.equal(imported.dns.filter.autoUpdate.enabled, true)
+})

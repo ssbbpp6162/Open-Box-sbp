@@ -43,8 +43,8 @@
 # 常是 tmpfs,512MB 机器装不下解包后的体积,见 Important 3),再停服务、换文件。
 # 任何一步失败都直接退出且不触碰现有安装。
 # 保留 data/(用户数据)与 etc/(部署出的运行配置),只替换 node/ panel/ bin/
-# openwrt/ 与 meta.json。升级只重启面板,不重启内核——内核是否曾在跑、跑的什么
-# 配置,升级脚本并不知道,交给用户/面板自己决定要不要重新下发。
+# openwrt/ 与 meta.json。内核和 Geo 数据按发布清单校验，相同版本复用，不重复下载。
+# 升级完成后重新生成配置并恢复原先运行的内核。
 
 set -eu
 
@@ -967,6 +967,13 @@ fi
 # 办法:正文前后各取一次校验和,两次不一致就说明中途发新版了,丢掉重下(最多三轮)。
 # 这样仍然是"每次都升到最新版、隔多少个版本都能直接升",只是不再把跨越发布边界的
 # 那一次误判成文件损坏。
+# 新版本按组件校验并按需下载；旧版本没有组件清单时沿用完整包路径。
+_COMPONENT_PREPARED=0
+if [ -f "$INSTALL_ROOT/panel/server/system/update-components.sh" ]; then
+  . "$INSTALL_ROOT/panel/server/system/update-components.sh"
+  if prepare_component_update; then _COMPONENT_PREPARED=1; fi
+fi
+if [ "$_COMPONENT_PREPARED" = "0" ]; then
 _dl_round=0
 while :; do
   _dl_round=$((_dl_round + 1))
@@ -1029,6 +1036,7 @@ STAGE_DIR="$INSTALL_ROOT/.update-stage.$$"
 safe_rm_rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR" || die "无法在 $INSTALL_ROOT 下创建暂存目录(权限或空间不足?)。现有安装未改动。"
 tar -xzf "$TMP_DL/$ASSET" -C "$STAGE_DIR" || die "解包失败。现有安装未改动。"
+fi # 完整包 / 按需组件均已在 STAGE_DIR 准备好
 for must in node panel bin openwrt meta.json; do
   [ -e "$STAGE_DIR/$must" ] || die "升级包内容不完整,缺少 $must。现有安装未改动。"
 done
@@ -1043,7 +1051,7 @@ NEW_VERSION=$(sed -n 's/.*"version" *: *"\([^"]*\)".*/\1/p' "$STAGE_DIR/meta.jso
 if [ -n "$EXPECT_VERSION" ] && [ "$NEW_VERSION" != "$EXPECT_VERSION" ]; then
   die "下载到的包是 $NEW_VERSION,不是期望的 $EXPECT_VERSION(镜像缓存了旧包?换「GitHub 直连」通道再试)。现有安装未改动。"
 fi
-if [ -n "$OLD_VERSION" ] && [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+if [ "$_COMPONENT_PREPARED" = "0" ] && [ -n "$OLD_VERSION" ] && [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
   info "当前已是最新版本($OLD_VERSION),无需升级。"
   write_status done "" "" "已是最新版本,无需升级"
   exit 0
@@ -1095,7 +1103,7 @@ POST_SWAP=1
 # 中途任何一步失败都整体回退:新的删掉、.old 挪回原位,现有安装回到升级前的样子。
 # 以前是换一个删一个 .old,第三个失败时前两个的旧版本已经没了,装置卡成半新半旧,
 # 只能手工修或重装。
-COMPONENTS="node panel bin openwrt"
+COMPONENTS="${UPDATE_COMPONENTS:-node panel bin openwrt}"
 INITD_DIR="${OPENBOX_INITD_DIR:-/etc/init.d}"
 SWAPPED_NEW=""
 rollback_components() {

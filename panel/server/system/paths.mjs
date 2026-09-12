@@ -10,6 +10,7 @@ export const createPaths = (root = '/opt/open-box') => ({
   tlsKey: `${root}/etc/certs/server.key`,
   dataDir: `${root}/data`,
   rulesetDir: `${root}/data/rulesets`,
+  geoDir: `${root}/panel/server/resources/geodata`,
   // 内核的 cache_file:记住各 selector 的选择,重启不丢
   cacheDb: `${root}/data/cache.db`,
   metaPath: `${root}/meta.json`,

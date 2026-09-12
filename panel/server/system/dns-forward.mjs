@@ -1,3 +1,4 @@
+import { rulesetPath } from './rulesets.mjs'
 // 第一层 · DNS 转发名单的展开:把转发计划里"要交给内核解析"的规则集(geosite / 规则集链接的域名那份)
 // 解码成 dnsmasq 能写的域名,和手写的域名合成最终名单。
 //
@@ -222,7 +223,7 @@ export const ruleSetToForwardEntries = (json) => {
 
 // 解码一份 .srs:交给内核 decompile 到临时文件再读。文件不在 / 解不开都当"这份规则集不可用"
 export const decodeRuleSetJson = async (ctx, paths, tag) => {
-  const srsPath = `${paths.rulesetDir}/${tag}.srs`
+  const srsPath = rulesetPath(paths, tag)
   if (!(await ctx.exists(srsPath))) return { error: '本地没有这份规则集文件' }
   const jsonPath = `${paths.dataDir}/tmp/${tag}.dns-forward.json`
   await ctx.mkdirp(`${paths.dataDir}/tmp`)

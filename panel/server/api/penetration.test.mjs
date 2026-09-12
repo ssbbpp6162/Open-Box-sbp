@@ -246,8 +246,8 @@ test('POST /api/openbox/penetration 合法域名/IPv4/IPv6 target 仍然通过(�
   // 参数校验路径。
   const ctx = createMockContext({
     files: withSingbox(
-      '/opt/open-box/data/rulesets/geosite-cn.srs',
-      '/opt/open-box/data/rulesets/geoip-cn.srs',
+      '/opt/open-box/panel/server/resources/geodata/geosite-cn.srs',
+      '/opt/open-box/panel/server/resources/geodata/geoip-cn.srs',
     ),
     defaultExec: { code: 0, stdout: '' },
   })
@@ -279,12 +279,12 @@ test('按序首个命中生效:前一条 rule_set 命中时,后一条同样会�
     },
   })
   const target = 'a.example.com'
-  const keyA = `${paths.singbox} rule-set match -f binary /opt/open-box/data/rulesets/geosite-a.srs ${target}`
-  const keyB = `${paths.singbox} rule-set match -f binary /opt/open-box/data/rulesets/geosite-b.srs ${target}`
+  const keyA = `${paths.singbox} rule-set match -f binary /opt/open-box/panel/server/resources/geodata/geosite-a.srs ${target}`
+  const keyB = `${paths.singbox} rule-set match -f binary /opt/open-box/panel/server/resources/geodata/geosite-b.srs ${target}`
   const ctx = createMockContext({
     // geosite-b 从未被求值(短路),所以只需要 geosite-a 的 .srs 存在即可让 matchRuleSet
     // 走到 exec 那一步。
-    files: withSingbox('/opt/open-box/data/rulesets/geosite-a.srs'),
+    files: withSingbox('/opt/open-box/panel/server/resources/geodata/geosite-a.srs'),
     execResults: {
       [keyA]: { code: 0, stdout: 'match rules.[0]: domain_suffix=geosite-a\n' },
       [keyB]: { code: 0, stdout: 'match rules.[0]: domain_suffix=geosite-b\n' }, // 若被求值也会命中——用来暴露"未 short-circuit"的 bug
@@ -323,8 +323,8 @@ test('无命中 → 落到 route.final,matched 为 null', async () => {
   const target = 'nowhere.example.org'
   const ctx = createMockContext({
     files: withSingbox(
-      '/opt/open-box/data/rulesets/geosite-cn.srs',
-      '/opt/open-box/data/rulesets/geoip-cn.srs',
+      '/opt/open-box/panel/server/resources/geodata/geosite-cn.srs',
+      '/opt/open-box/panel/server/resources/geodata/geoip-cn.srs',
     ),
     defaultExec: { code: 0, stdout: '' }, // 所有 rule-set match 都不命中
   })
@@ -411,9 +411,9 @@ test('策略组下钻:outbound 为策略组时经 clash_api 沿 now 字段逐层
     },
   })
   const target = 'hk.example.com'
-  const keyHk = `${paths.singbox} rule-set match -f binary /opt/open-box/data/rulesets/geosite-hk.srs ${target}`
+  const keyHk = `${paths.singbox} rule-set match -f binary /opt/open-box/panel/server/resources/geodata/geosite-hk.srs ${target}`
   const ctx = createMockContext({
-    files: withSingbox('/opt/open-box/data/rulesets/geosite-hk.srs'),
+    files: withSingbox('/opt/open-box/panel/server/resources/geodata/geosite-hk.srs'),
     execResults: { [keyHk]: { code: 0, stdout: 'match rules.[0]: domain_suffix=geosite-hk\n' } },
   })
 
@@ -461,9 +461,9 @@ test('clash_api 不可达时降级:只返回组名 + chainError,不整体失败'
     },
   })
   const target = 'hk.example.com'
-  const keyHk = `${paths.singbox} rule-set match -f binary /opt/open-box/data/rulesets/geosite-hk.srs ${target}`
+  const keyHk = `${paths.singbox} rule-set match -f binary /opt/open-box/panel/server/resources/geodata/geosite-hk.srs ${target}`
   const ctx = createMockContext({
-    files: withSingbox('/opt/open-box/data/rulesets/geosite-hk.srs'),
+    files: withSingbox('/opt/open-box/panel/server/resources/geodata/geosite-hk.srs'),
     execResults: { [keyHk]: { code: 0, stdout: 'match rules.[0]: domain_suffix=geosite-hk\n' } },
   })
   const fetchImpl = async () => { throw new Error('ECONNREFUSED') }
@@ -494,9 +494,9 @@ test('clash_api 返回非 2xx 时同样降级为 chainError', async () => {
     },
   })
   const target = 'hk.example.com'
-  const keyHk = `${paths.singbox} rule-set match -f binary /opt/open-box/data/rulesets/geosite-hk.srs ${target}`
+  const keyHk = `${paths.singbox} rule-set match -f binary /opt/open-box/panel/server/resources/geodata/geosite-hk.srs ${target}`
   const ctx = createMockContext({
-    files: withSingbox('/opt/open-box/data/rulesets/geosite-hk.srs'),
+    files: withSingbox('/opt/open-box/panel/server/resources/geodata/geosite-hk.srs'),
     execResults: { [keyHk]: { code: 0, stdout: 'match rules.[0]: domain_suffix=geosite-hk\n' } },
   })
   const fetchImpl = async () => ({ ok: false, status: 500, json: async () => ({}) })
@@ -526,9 +526,9 @@ test('ad-block reject 规则命中:matched.action=reject,无 outbound,不下钻'
     },
   })
   const target = 'ads.example.com'
-  const keyAds = `${paths.singbox} rule-set match -f binary /opt/open-box/data/rulesets/geosite-ads.srs ${target}`
+  const keyAds = `${paths.singbox} rule-set match -f binary /opt/open-box/panel/server/resources/geodata/geosite-ads.srs ${target}`
   const ctx = createMockContext({
-    files: withSingbox('/opt/open-box/data/rulesets/geosite-ads.srs'),
+    files: withSingbox('/opt/open-box/panel/server/resources/geodata/geosite-ads.srs'),
     execResults: { [keyAds]: { code: 0, stdout: 'match rules.[0]: domain_suffix=geosite-ads\n' } },
   })
   let fetchCalls = 0
@@ -597,11 +597,11 @@ test('POST /penetration:sing-box 异常退出且无输出 → 200 + matchError,�
     },
   })
   const target = 'crash.example.com'
-  const key = `${paths.singbox} rule-set match -f binary /opt/open-box/data/rulesets/geosite-cn.srs ${target}`
+  const key = `${paths.singbox} rule-set match -f binary /opt/open-box/panel/server/resources/geodata/geosite-cn.srs ${target}`
   const ctx = createMockContext({
     files: withSingbox(
-      '/opt/open-box/data/rulesets/geosite-cn.srs',
-      '/opt/open-box/data/rulesets/geoip-cn.srs',
+      '/opt/open-box/panel/server/resources/geodata/geosite-cn.srs',
+      '/opt/open-box/panel/server/resources/geodata/geoip-cn.srs',
     ),
     execResults: { [key]: { code: 1, stdout: '', stderr: '' } },
   })
@@ -633,7 +633,7 @@ test('POST /penetration:could-not-check 命中后立刻停止求值——后面�
     },
   })
   const target = 'a.example.com'
-  const keyB = `${paths.singbox} rule-set match -f binary /opt/open-box/data/rulesets/geosite-b.srs ${target}`
+  const keyB = `${paths.singbox} rule-set match -f binary /opt/open-box/panel/server/resources/geodata/geosite-b.srs ${target}`
   const ctx = createMockContext({
     files: { [paths.singbox]: 'binary' }, // geosite-a.srs 故意缺失,geosite-b.srs 也不存在但不该被检查到
     execResults: {
@@ -742,7 +742,7 @@ test('POST /penetration:策略的域名条件本地就能判定,不去 exec 内�
 })
 
 test('命中规则集时带回具体命中的条目(内核解码后逐条比);规则集和手写条件在内核里是紧邻的两条,命中哪条就列哪条的', async () => {
-  const srs = `${paths.rulesetDir}/geosite-google.srs`
+  const srs = `${paths.geoDir}/geosite-google.srs`
   const ctx = createMockContext({
     files: {
       ...withSingbox(srs),
@@ -786,7 +786,7 @@ test('订阅和节点站点直连(默认开):目标是某个节点的服务器�
   const store = memStore()
   store.setNodes(NODES)
   store.setProfile({ routing: { fallbackDefault: 'proxy', policies: [{ id: 'hk', name: 'HK', rulesets: ['geosite-hk'] }] } })
-  const ctx = createMockContext({ files: withSingbox('/opt/open-box/data/rulesets/geosite-hk.srs') })
+  const ctx = createMockContext({ files: withSingbox('/opt/open-box/panel/server/resources/geodata/geosite-hk.srs') })
   const { baseUrl, close } = await startApp({ ctx, store, fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({}) }) })
   try {
     const { body } = await post(baseUrl, 'hk.example.com')

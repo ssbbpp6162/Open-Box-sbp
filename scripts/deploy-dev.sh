@@ -75,6 +75,15 @@ remote "test -d $INSTALL_ROOT/panel" >/dev/null \
 info "构建面板..."
 ( cd "$ROOT/panel" && pnpm run build >/dev/null ) || die "面板构建失败。"
 
+# 开发版使用同样的完整 Geo 快照，避免仅同步源码后缺少随包资源。
+GEO_BUNDLE="${OPENBOX_GEO_BUNDLE_DIR:-$ROOT/.build-cache/geodata}"
+if [ ! -f "$GEO_BUNDLE/manifest.json" ]; then
+  python3 "$ROOT/scripts/bundle-geodata.py" "$GEO_BUNDLE"
+fi
+python3 "$ROOT/scripts/bundle-geodata.py" --verify "$GEO_BUNDLE"
+mkdir -p "$ROOT/panel/server/resources/geodata"
+rsync -a --delete "$GEO_BUNDLE/" "$ROOT/panel/server/resources/geodata/"
+
 # ---------- 同步 ----------
 # dist 用 --delete:旧的 hash 文件名不清掉会越堆越多。
 info "同步 panel/dist..."

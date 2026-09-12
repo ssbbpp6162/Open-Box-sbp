@@ -1,9 +1,7 @@
 // 自动更新计划:面板进程自己每分钟看一眼档案里的计划,到点就做;不依赖 cron。
-// 两件事:Open-Box 自身升级(先探最新版,有新版才升)、Geo 规则集刷新(同样先探上游
-// tag,有新版才下,下完重启内核让新文件生效)。每件事一天最多做一次,记录在
-// data/schedule-state.json。
+// 程序、内核、Geo 数据一起由 Open-Box 更新脚本处理，订阅保留独立计划。
 import { fetchSelections, resolveSelections } from '../api/deploy-runner.mjs'
-import { readJsonFile, writeJsonFile, readMeta, fetchLatestVersion, compareVersions, startUpdate, refreshRulesets, readUpdateStatus, checkGeoUpdate } from './updater.mjs'
+import { readJsonFile, writeJsonFile, readMeta, fetchLatestVersion, compareVersions, startUpdate, readUpdateStatus } from './updater.mjs'
 import { serviceStatus } from './service.mjs'
 import { refreshSubscriptionById } from '../api/subscriptions.mjs'
 
@@ -23,43 +21,7 @@ export const runScheduledTasks = async ({ store, ctx, paths, fetchImpl = globalT
   const today = dayKey(now)
   let changed = false
 
-  // Geo 规则集
-  const geo = updates.geo || {}
-  if (geo.auto && Number(geo.hour) === hour && state.geoDay !== today) {
-    const days = Math.max(1, Number(geo.days) || 7)
-    const last = state.geoLastAt ? new Date(state.geoLastAt) : null
-    const due = !last || now - last >= (days - 0.5) * 24 * 3600 * 1000
-    state.geoDay = today
-    changed = true
-    if (due) {
-      const channel = geo.channel || 'auto'
-      try {
-        const check = await checkGeoUpdate(ctx, paths, { fetchImpl })
-        if (!check.hasUpdate) {
-          state.geoLastAt = now.toISOString()
-          log(`[schedule] geo rulesets up to date (${Object.values(check.latest).join(', ')})`)
-        } else {
-          const previous = await readJsonFile(ctx, paths.geoUpdateStatePath, {})
-          const result = await refreshRulesets(ctx, paths, { fetchImpl, channel, latest: check.latest })
-          let restarted = false
-          if (result.updated.length && runDeploy && (await serviceStatus(ctx, paths.initd.core)).running) {
-            restarted = (await runDeploy({ store, ctx, paths })).ok
-          }
-          state.geoLastAt = now.toISOString()
-          const versions = result.updated.length ? { ...(previous.versions || {}), ...result.versions } : previous.versions || {}
-          await writeJsonFile(ctx, paths.geoUpdateStatePath, {
-            lastAt: state.geoLastAt, updated: result.updated, failed: result.failed, restarted, trigger: 'schedule', channel, versions, source: result.source,
-          })
-          log(`[schedule] geo rulesets: ${result.updated.length} updated, ${result.failed.length} failed`)
-        }
-      } catch (err) {
-        log(`[schedule] geo rulesets failed: ${err instanceof Error ? err.message : err}`)
-      }
-    }
-  }
-
-  // Open-Box 自身:和 Geo 一样按「每隔几天」到点探一次,有新版才升;openboxLastAt 记的是
-  // 上次真正探过的时间(不管有没有新版),间隔从它算
+  // Geo 跟随发布包，忽略旧备份/旧档案中遗留的 updates.geo 计划。
   const ob = updates.openbox || {}
   if (ob.auto && Number(ob.hour) === hour && state.openboxDay !== today) {
     const days = Math.max(1, Number(ob.days) || 1)

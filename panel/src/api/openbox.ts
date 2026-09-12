@@ -152,7 +152,6 @@ export const fetchDnsFilterPreview = (url: string, search: string, page: number,
 // channel 是自动更新走的通道;checkChannel 是卡片上手动检查 / 更新那个下拉框上次选的通道
 export interface OpenboxUpdatePlans {
   openbox?: { auto?: boolean; hour?: number; days?: number; channel?: 'auto' | 'direct' | 'mirror'; checkChannel?: 'auto' | 'direct' | 'mirror' }
-  geo?: { auto?: boolean; hour?: number; days?: number; channel?: 'auto' | 'direct' | 'mirror'; checkChannel?: 'auto' | 'direct' | 'mirror' }
 }
 
 // 「共享网络」里的一台服务器:本机开的一个入站(server/engine/servers.mjs)
@@ -1001,33 +1000,6 @@ export const runUpdate = (channel: 'auto' | 'direct' | 'mirror') =>
 export const cancelUpdate = () => requestJson<{ result: string }>('/api/openbox/update/cancel', { method: 'POST' })
 
 export type OpenboxUpdateChannel = 'auto' | 'direct' | 'mirror'
-// Geo 规则集的"版本":上游两个仓库(SagerNet/sing-geosite、sing-geoip)的发布 tag
-export type OpenboxGeoRepo = 'geosite' | 'geoip'
-export type OpenboxGeoVersions = Partial<Record<OpenboxGeoRepo, string>>
-export interface OpenboxRulesetsRefreshResult {
-  ok: boolean
-  updated: string[]
-  failed: Array<{ tag: string; message: string }>
-  total?: number
-  versions?: OpenboxGeoVersions
-  restarted: boolean
-  restartMessage?: string
-  message?: string
-  // 一个规则集都没有可更新(内核还没成功部署过),message 里说明
-  nothing?: boolean
-}
-export const refreshRulesets = (channel: OpenboxUpdateChannel = 'auto') =>
-  requestJson<OpenboxRulesetsRefreshResult>('/api/openbox/rulesets/refresh', { method: 'POST', body: JSON.stringify({ channel }) })
-export const fetchRulesetsRefreshStatus = () =>
-  requestJson<{ count: number; lastAt: string; updated: string[]; failed: Array<{ tag: string; message: string }>; restarted: boolean; versions: OpenboxGeoVersions }>(
-    '/api/openbox/rulesets/refresh/status',
-  )
-// 探上游有没有新版:current 是上次下载时记下的 tag(老安装没记过就是空),used 是配置用到的仓库
-export const checkGeoUpdate = (channel: OpenboxUpdateChannel = 'auto') =>
-  requestJson<{ current: OpenboxGeoVersions; latest: OpenboxGeoVersions; hasUpdate: boolean; via: string; used: OpenboxGeoRepo[] }>(
-    `/api/openbox/rulesets/check?channel=${channel}`,
-  )
-
 // 「真实路由」:DNS 决策 + 内核解析 + 真实访问一次并从连接表里读实际链路
 export interface OpenboxRouteTest {
   target: string

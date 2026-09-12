@@ -1,3 +1,5 @@
+import { rulesetKind } from '../system/rulesets.mjs'
+import { createPaths } from '../system/paths.mjs'
 import { prepareDnsFilter, readFilterArtifact } from '../system/dns-filter.mjs'
 import { filterForwardPlan } from '../engine/dns-filter.mjs'
 import { randomBytes } from 'node:crypto'
@@ -220,7 +222,7 @@ export const regenerateIfPlanChanged = async ({ store, ctx, paths, selections, l
   return { regenerated: true, reason, result }
 }
 
-export const buildCurrentConfig = (store, systemDns, { cacheFilePath, selections, tlsCert, localSubnets = [], directHostCidrs = [], ruleLists = {}, profilePatch, nativeBypass } = {}) => {
+export const buildCurrentConfig = (store, systemDns, { geoDir = createPaths(process.env.OPENBOX_ROOT).geoDir, cacheFilePath, selections, tlsCert, localSubnets = [], directHostCidrs = [], ruleLists = {}, profilePatch, nativeBypass } = {}) => {
   const profile = profilePatch ? { ...store.getProfile(), ...profilePatch } : store.getProfile()
   // 停用的订阅的节点不进内核(api/subscriptions.mjs 的 activeNodes)
   const nodes = activeNodes(store)
@@ -243,6 +245,9 @@ export const buildCurrentConfig = (store, systemDns, { cacheFilePath, selections
     nativeBypass,
     dnsFilter: readFilterArtifact(store),
   })
+  for (const entry of config.route?.rule_set || []) {
+    if (rulesetKind(entry.tag)) entry.path = `${geoDir}/${entry.tag}.srs`
+  }
   // 故障转移的运行映射(父组 / 页签 / 有效节点 / 子组 tag / 检测参数):和配置同一次生成,写进 config.meta.json
   // 给后台管理器和界面用
   const { failover } = emitUserGroups(store.getGroups(), nodes, { testUrl: profile.testUrl })
@@ -378,7 +383,7 @@ const runDeployInner = async ({ store, ctx, paths, fetchImpl = globalThis.fetch,
       // 生成配置和元数据用同一份结论
       const nativeBypass = await resolveNativeBypass(ctx, paths, currentBypassPlan(store, selections))
       const buildOptions = {
-        cacheFilePath: paths.cacheDb, selections, tlsCert: { certPath: paths.tlsCert, keyPath: paths.tlsKey }, localSubnets, directHostCidrs,
+        geoDir: paths.geoDir, cacheFilePath: paths.cacheDb, selections, tlsCert: { certPath: paths.tlsCert, keyPath: paths.tlsKey }, localSubnets, directHostCidrs,
         ruleLists: ruleLists.lists, nativeBypass,
       }
       const { config, profile, failover } = buildCurrentConfig(store, systemDns, buildOptions)
