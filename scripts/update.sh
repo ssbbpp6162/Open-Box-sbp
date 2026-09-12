@@ -966,6 +966,16 @@ fi
 # 那一次误判成文件损坏。
 # 新版本按组件校验并按需下载；旧版本没有组件清单时沿用完整包路径。
 _COMPONENT_PREPARED=0
+
+# LuCI 会把刚刚探到的最新版通过 --expect 传进来。若本地 meta.json 已经是这个
+# 版本,直接结束本次请求,不要为了重新铺同一份 app/LuCI 文件而再次下载和替换。
+# 这一步放在临时目录和 cleanup trap 建好之后,确保提前退出仍会释放更新锁。
+if [ -n "$EXPECT_VERSION" ] && [ -n "$OLD_VERSION" ] && [ "$OLD_VERSION" = "$EXPECT_VERSION" ]; then
+  info "当前已是最新版本($OLD_VERSION),无需升级。"
+  write_status done "" "" "已是最新版本,无需升级"
+  exit 0
+fi
+
 if [ -f "$INSTALL_ROOT/panel/server/system/update-components.sh" ]; then
   . "$INSTALL_ROOT/panel/server/system/update-components.sh"
   if prepare_component_update; then _COMPONENT_PREPARED=1; fi
