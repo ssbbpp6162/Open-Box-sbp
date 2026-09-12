@@ -35,18 +35,20 @@
         <div class="flex shrink-0 flex-col items-end gap-1">
         <div class="flex items-center gap-2">
           <!-- 启用 / 停用:停用的订阅节点不进内核(重启内核生效),订阅记录和节点池都留着 -->
-          <input
+          <button
             v-if="toggleable"
-            type="checkbox"
-            class="toggle toggle-sm z-30"
+            type="button"
+            class="btn btn-ghost btn-square btn-sm z-30"
+            :class="subscription.enabled === false ? 'text-base-content/40' : 'text-success'"
             v-tip="$t('subscriptionEnabledToggle')"
-            :checked="subscription.enabled !== false"
-            @click.stop
-            @change="$emit('toggle', ($event.target as HTMLInputElement).checked)"
-          />
+            :aria-label="$t('subscriptionEnabledToggle')"
+            @click.stop="$emit('toggle', subscription.enabled === false)"
+          >
+            <PowerIcon class="h-4 w-4" />
+          </button>
           <button
             type="button"
-            class="btn btn-circle btn-sm z-30"
+            class="btn btn-ghost btn-square btn-sm z-30"
             v-tip="$t('proxiesSubscriptionLatencyTest')"
             :aria-label="$t('proxiesSubscriptionLatencyTest')"
             :disabled="!allProxies.length"
@@ -63,7 +65,7 @@
           </button>
           <button
             type="button"
-            class="btn btn-circle btn-sm z-30"
+            class="btn btn-ghost btn-square btn-sm z-30"
             v-tip="$t('refresh')"
             :aria-label="$t('refresh')"
             :disabled="refreshing"
@@ -73,7 +75,7 @@
           </button>
           <button
             type="button"
-            class="btn btn-circle btn-sm z-30"
+            class="btn btn-ghost btn-square btn-sm z-30"
             v-tip="$t('subscriptionEditTitle')"
             :aria-label="$t('subscriptionEditTitle')"
             @click.stop="$emit('edit')"
@@ -84,7 +86,7 @@
           <button
             v-if="deletable"
             type="button"
-            class="btn btn-circle btn-sm z-30 hover:text-error"
+            class="btn btn-ghost btn-square btn-sm z-30 hover:text-error"
             v-tip="$t('delete')"
             :aria-label="$t('delete')"
             @click.stop="$emit('delete')"
@@ -142,7 +144,7 @@ import ProxyPreview from '@/components/proxies/ProxyPreview.vue'
 import { useRenderProxies } from '@/composables/renderProxies'
 import { nodeProviders } from '@/store/openboxSiteSets'
 import { proxyMap, proxyNodesLatencyTest } from '@/store/proxies'
-import { ArrowPathIcon, Bars3Icon, BoltIcon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, Bars3Icon, BoltIcon, PencilSquareIcon, PowerIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import dayjs from 'dayjs'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
