@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import express from 'express'
+import YAML from 'yaml'
 import { createStore } from '../store/openbox-store.mjs'
 import { registerPublicSubscriptionShareRoutes, registerSubscriptionShareRoutes } from './subscription-shares.mjs'
 import { parseSubscription } from '../engine/subscription.mjs'
@@ -68,5 +69,20 @@ test('public share applies current per-subscription naming after decoding and be
     store.setSubscriptions([{ ...subscriptions[0], name: '新名称' }, subscriptions[1]])
     const updated = await fetch(`${base}/sub/${'a'.repeat(48)}`)
     assert.deepEqual(parseSubscription(await updated.text()).nodes.map((node) => node.tag), ['新名称 | 香港-01', '香港A'])
+  } finally { await close() }
+})
+
+test('public share returns Clash YAML when requested by a Clash client', async () => {
+  const { store, base, close } = await setup()
+  try {
+    const encoded = Buffer.from('anytls://test-password@proxy.example:443?sni=tls.example#%E9%A6%99%E6%B8%AFA', 'utf8').toString('base64')
+    store.setSubscriptions([{ id: 'one', name: '机场', content: encoded, renameOptions: { enabled: true } }])
+    store.setSubscriptionShares([{ id: 'share', token: 'b'.repeat(48), name: 'Clash', subscriptionIds: ['one'] }])
+    const response = await fetch(`${base}/sub/${'b'.repeat(48)}`, { headers: { 'user-agent': 'ClashMi/1.0' } })
+    assert.equal(response.status, 200)
+    assert.match(response.headers.get('content-type'), /yaml/)
+    const body = await response.text()
+    assert.match(body, /^proxies:/)
+    assert.equal(YAML.parse(body).proxies[0].name, '香港-01')
   } finally { await close() }
 })

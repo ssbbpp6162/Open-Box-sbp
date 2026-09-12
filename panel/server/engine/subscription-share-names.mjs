@@ -110,3 +110,28 @@ export const applySubscriptionShareNames = (content, subscription, storedNodes =
   }
   return changed ? render() : content
 }
+
+// Clash/Mihomo 客户端要求订阅根节点包含 proxies。把通用分享链接转换成最小的
+// Clash 节点对象；这里只转换连接参数，不丢弃名称、服务器和认证信息。
+export const toClashProxy = (node) => {
+  const fields = node.fields || {}
+  const proxy = { name: node.tag, type: node.type === 'shadowsocks' ? 'ss' : node.type, server: node.server, port: node.server_port }
+  const copy = ['method', 'password', 'uuid', 'alter_id', 'security', 'flow', 'username', 'obfs', 'private_key', 'peer_public_key', 'local_address']
+  for (const key of copy) if (fields[key] !== undefined) proxy[key === 'private_key' ? 'private-key' : key] = fields[key]
+  if (fields.tls) {
+    proxy.tls = fields.tls.enabled !== false
+    if (fields.tls.server_name) proxy.servername = fields.tls.server_name
+    if (fields.tls.insecure) proxy['skip-cert-verify'] = true
+    if (fields.tls.utls?.fingerprint) proxy['client-fingerprint'] = fields.tls.utls.fingerprint
+    if (fields.tls.reality?.public_key) proxy['reality-opts'] = { 'public-key': fields.tls.reality.public_key, ...(fields.tls.reality.short_id ? { 'short-id': fields.tls.reality.short_id } : {}) }
+  }
+  const transport = fields.transport
+  if (transport) {
+    proxy.network = transport.type
+    if (transport.type === 'ws') proxy['ws-opts'] = { ...(transport.path ? { path: transport.path } : {}), ...(transport.headers ? { headers: transport.headers } : {}) }
+    if (transport.type === 'grpc' && transport.service_name) proxy['grpc-opts'] = { 'grpc-service-name': transport.service_name }
+    if (transport.type === 'http') proxy['http-opts'] = { ...(transport.path ? { path: [transport.path] } : {}), ...(transport.headers?.Host ? { headers: { Host: [transport.headers.Host] } } : {}) }
+  }
+  if (fields.obfs?.type) { proxy.obfs = fields.obfs.type; if (fields.obfs.password) proxy['obfs-password'] = fields.obfs.password }
+  return proxy
+}

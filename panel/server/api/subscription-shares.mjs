@@ -3,8 +3,8 @@ import dns from 'node:dns/promises'
 import express from 'express'
 import YAML from 'yaml'
 import { decodeBase64, isProbablyBase64 } from '../engine/codec.mjs'
-import { detectSubscriptionFormat } from '../engine/subscription.mjs'
-import { applySubscriptionShareNames } from '../engine/subscription-share-names.mjs'
+import { detectSubscriptionFormat, parseSubscription } from '../engine/subscription.mjs'
+import { applySubscriptionShareNames, toClashProxy } from '../engine/subscription-share-names.mjs'
 import { fetchSubscriptionText, subscriptionUrls } from './subscriptions.mjs'
 
 const MAX_NAME = 120
@@ -90,6 +90,14 @@ export const registerPublicSubscriptionShareRoutes = (app, { store, fetchImpl = 
       // 不完整的配置。
       const nodes = store.getNodes()
       const parts = await Promise.all(selected.map((sub) => sourceText(sub, { fetchImpl, lookup, nodes })))
+      const wantsClash = /clash/i.test(String(req.headers['user-agent'] || '')) || /clash/i.test(String(req.query?.format || ''))
+      if (wantsClash) {
+        const proxies = parts.flatMap((part) => parseSubscription(part).nodes).map(toClashProxy)
+        if (!proxies.length) return res.status(404).type('text/plain').send('subscription share has no Clash-compatible nodes')
+        res.setHeader('Cache-Control', 'no-store')
+        res.setHeader('Content-Type', 'text/yaml; charset=utf-8')
+        return res.send(YAML.stringify({ proxies }))
+      }
       const merged = mergeContents(parts)
       if (!merged.body) return res.status(404).type('text/plain').send('subscription share has no content')
       res.setHeader('Cache-Control', 'no-store')
