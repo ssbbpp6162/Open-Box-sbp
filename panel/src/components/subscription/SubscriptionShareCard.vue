@@ -108,7 +108,7 @@ const save = async () => {
     const share = editing.value
       ? await updateSubscriptionShare(editing.value.id, { name: form.name, host: form.host, protocol: form.protocol, subscriptionIds: form.subscriptionIds, regenerate: true })
       : await createSubscriptionShare({ name: form.name, host: form.host, protocol: form.protocol, subscriptionIds: form.subscriptionIds })
-    await makeQr(share); emit('changed'); showNotification({ content: '订阅分享已保存', type: 'alert-success' })
+    await makeQr(share); emit('changed'); dialogOpen.value = false; showNotification({ content: '订阅分享已保存', type: 'alert-success' })
   } catch (error) { showNotification({ content: '订阅分享保存失败', type: 'alert-error', params: { message: error instanceof Error ? error.message : String(error) } }) } finally { busy.value = false }
 }
 const regenerate = async (share: OpenboxSubscriptionShare) => { if (busy.value) return; busy.value = true; try { await regenerateSubscriptionShare(share.id); emit('changed') } finally { busy.value = false } }
