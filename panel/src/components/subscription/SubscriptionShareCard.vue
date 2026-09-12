@@ -1,20 +1,21 @@
 <template>
-  <section class="border-base-content/15 flex flex-col gap-3 border-y py-4">
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <h2 class="text-base font-semibold">订阅分享</h2>
-        <p class="text-base-content/55 mt-1 text-xs">生成可供其他设备或代理软件直接使用的订阅链接</p>
+  <section class="card bg-base-100 border-base-300/60 border">
+    <div class="card-body gap-3 p-4 text-sm">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-base font-semibold">订阅分享</h2>
+          <p class="text-base-content/55 mt-1 text-xs">生成可供其他设备或代理软件直接使用的订阅链接</p>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" @click="openCreate">
+          <PlusIcon class="h-4 w-4" /> 添加
+        </button>
       </div>
-      <button type="button" class="btn btn-primary btn-sm" @click="openCreate">
-        <PlusIcon class="h-4 w-4" /> 添加
-      </button>
-    </div>
 
-    <div v-if="!shares.length" class="text-base-content/55 py-3 text-center text-sm">
-      暂无订阅分享，点击右上角“添加”创建
-    </div>
-    <div v-else class="flex flex-col divide-y divide-base-content/10">
-      <div v-for="share in shares" :key="share.id" class="flex flex-wrap items-center gap-3 py-3 first:pt-1 last:pb-1">
+      <div v-if="!shares.length" class="text-base-content/55 py-3 text-center text-sm">
+        暂无订阅分享，点击右上角“添加”创建
+      </div>
+      <div v-else class="divide-base-content/10 divide-y">
+        <div v-for="share in shares" :key="share.id" class="flex flex-wrap items-center gap-3 py-3 first:pt-1 last:pb-1">
         <div class="min-w-0 flex-1">
           <div class="truncate text-sm font-medium">{{ share.name }}</div>
           <div class="text-base-content/55 mt-1 truncate font-mono text-xs">{{ shareUrl(share) }}</div>
@@ -26,6 +27,7 @@
           <button type="button" class="btn btn-ghost btn-sm btn-square" title="重新生成" :disabled="busy" @click="regenerate(share)"><ArrowPathIcon class="h-4 w-4" /></button>
           <button type="button" class="btn btn-ghost btn-sm btn-square" title="编辑" @click="openEdit(share)"><PencilSquareIcon class="h-4 w-4" /></button>
           <button type="button" class="btn btn-ghost btn-sm btn-square hover:text-error" title="删除" @click="remove(share)"><TrashIcon class="h-4 w-4" /></button>
+        </div>
         </div>
       </div>
     </div>
