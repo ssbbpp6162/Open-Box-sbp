@@ -1,16 +1,31 @@
 <template>
-  <section class="card bg-base-100 border-base-300/60 border">
-    <div class="card-body gap-3 p-4 text-sm">
+  <CollapseCard
+    :name="COLLAPSE_KEY"
+    :content-scrollable="false"
+  >
+    <template #title>
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 class="text-base font-semibold">订阅分享</h2>
+          <h2 class="flex items-center gap-1 text-base font-semibold">
+            订阅分享
+            <ChevronUpIcon
+              v-if="shareExpanded"
+              class="h-4 w-4"
+            />
+            <ChevronDownIcon
+              v-else
+              class="h-4 w-4"
+            />
+          </h2>
           <p class="text-base-content/55 mt-1 text-xs">生成可供其他设备或代理软件直接使用的订阅链接</p>
         </div>
-        <button type="button" class="btn btn-primary btn-sm" @click="openCreate">
+        <button type="button" class="btn btn-primary btn-sm" @click.stop="openCreate">
           <PlusIcon class="h-4 w-4" /> 添加
         </button>
       </div>
+    </template>
 
+    <template #content>
       <div v-if="!shares.length" class="text-base-content/55 py-3 text-center text-sm">
         暂无订阅分享，点击右上角“添加”创建
       </div>
@@ -29,8 +44,8 @@
         </div>
         </div>
       </div>
-    </div>
-  </section>
+    </template>
+  </CollapseCard>
 
   <DialogWrapper v-model="dialogOpen" :title="editing ? '编辑订阅分享' : '新增订阅分享'" box-class="w-full max-w-3xl">
     <div class="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
@@ -66,14 +81,18 @@
 import QRCode from 'qrcode'
 import { computed, reactive, ref, watch } from 'vue'
 import DialogWrapper from '@/components/common/DialogWrapper.vue'
+import CollapseCard from '@/components/common/CollapseCard.vue'
+import { collapseGroupMap } from '@/store/settings'
 import type { OpenboxSubscription, OpenboxSubscriptionShare } from '@/api/openbox'
 import { createSubscriptionShare, deleteSubscriptionShare, regenerateSubscriptionShare, updateSubscriptionShare } from '@/api/openbox'
 import { copyText as copyToClipboard } from '@/helper/clipboard'
 import { showNotification } from '@/helper/notification'
-import { ArrowPathIcon, ClipboardDocumentIcon, PencilSquareIcon, PlusIcon, PowerIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, ChevronDownIcon, ChevronUpIcon, ClipboardDocumentIcon, PencilSquareIcon, PlusIcon, PowerIcon, TrashIcon } from '@heroicons/vue/24/outline'
 
 const props = defineProps<{ subscriptions: OpenboxSubscription[]; shares: OpenboxSubscriptionShare[] }>()
 const emit = defineEmits<{ changed: [] }>()
+const COLLAPSE_KEY = 'subscription-share'
+const shareExpanded = computed(() => Boolean(collapseGroupMap.value[COLLAPSE_KEY]))
 const dialogOpen = ref(false)
 const editing = ref<OpenboxSubscriptionShare | null>(null)
 const generatedShare = ref<OpenboxSubscriptionShare | null>(null)
