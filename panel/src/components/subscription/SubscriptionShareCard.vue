@@ -10,7 +10,7 @@
       </button>
     </div>
 
-    <div v-if="!shares.length" class="border-base-content/15 text-base-content/55 rounded-lg border border-dashed py-6 text-center text-sm">
+    <div v-if="!shares.length" class="text-base-content/55 py-3 text-center text-sm">
       暂无订阅分享，点击右上角“添加”创建
     </div>
     <div v-else class="flex flex-col divide-y divide-base-content/10">
@@ -78,8 +78,18 @@ const form = reactive({ name: '', host: '', subscriptionIds: [] as string[] })
 const currentHost = () => window.location.host
 const shareUrl = (share: OpenboxSubscriptionShare) => `${window.location.protocol}//${share.host || currentHost()}/sub/${share.token}`
 const displayUrl = computed(() => generatedShare.value ? shareUrl(generatedShare.value) : `${window.location.protocol}//${form.host || currentHost()}/sub/${draftToken.value}`)
+const makeDraftToken = () => {
+  try {
+    if (window.crypto?.getRandomValues) {
+      const bytes = new Uint8Array(24)
+      window.crypto.getRandomValues(bytes)
+      return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+    }
+  } catch { /* HTTP 页面或旧浏览器可能没有 Web Crypto */ }
+  return `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`
+}
 const selectedNames = (share: OpenboxSubscriptionShare) => (Array.isArray(share.subscriptionIds) ? share.subscriptionIds : []).map((id) => props.subscriptions.find((s) => s.id === id)?.name || id)
-const reset = () => { form.name = ''; form.host = currentHost(); form.subscriptionIds = []; editing.value = null; generatedShare.value = null; draftToken.value = window.crypto.randomUUID().replace(/-/g, ''); qrDataUrl.value = '' }
+const reset = () => { form.name = ''; form.host = currentHost(); form.subscriptionIds = []; editing.value = null; generatedShare.value = null; draftToken.value = makeDraftToken(); qrDataUrl.value = '' }
 const openCreate = () => { reset(); dialogOpen.value = true }
 const openEdit = (share: OpenboxSubscriptionShare) => { reset(); editing.value = share; form.name = share.name; form.host = share.host || currentHost(); form.subscriptionIds = [...share.subscriptionIds]; dialogOpen.value = true }
 const makeQr = async (share: OpenboxSubscriptionShare) => { generatedShare.value = share; qrDataUrl.value = await QRCode.toDataURL(shareUrl(share), { margin: 1, width: 240 }) }
