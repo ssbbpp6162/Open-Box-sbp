@@ -1027,7 +1027,7 @@ const openEditor = (group: OpenboxUserGroup | null) => {
         icon: '',
         keywords: [],
         members: [],
-        interval: '60s',
+        interval: '300s',
         tolerance: 100,
         testUrl: '',
       }
@@ -1065,7 +1065,7 @@ const ensureFailoverFields = (d: OpenboxUserGroup) => {
   d.mode = 'static'
   if (!d.lanes || !d.lanes.length) d.lanes = [makeLane(), makeLane()]
   for (const lane of d.lanes) if (lane.icon === undefined) lane.icon = ''
-  if (!d.interval || !/^\d+s$/.test(d.interval)) d.interval = '60s'
+  if (!d.interval || !/^\d+s$/.test(d.interval)) d.interval = '300s'
   if (typeof d.tolerance !== 'number') d.tolerance = 100
   if (d.testUrl === undefined) d.testUrl = ''
   d.failover = { ...FAILOVER_DEFAULTS, ...(d.failover || {}) }
@@ -1138,11 +1138,11 @@ const confirmDeleteLane = () => {
 const intervalSeconds = computed<number>({
   get: () => {
     const m = /^(\d+)s$/.exec(draft.value?.interval || '')
-    return m ? Number(m[1]) : 60
+    return m ? Number(m[1]) : 300
   },
   set: (v: number) => {
     if (!draft.value) return
-    const n = Number.isFinite(v) ? Math.min(86400, Math.max(0, Math.floor(v))) : 60
+    const n = Number.isFinite(v) ? Math.min(86400, Math.max(0, Math.floor(v))) : 300
     draft.value.interval = `${n}s`
   },
 })
@@ -1194,7 +1194,7 @@ const onTypeChange = () => {
     d.mode = normalBackup?.mode ?? 'static'
     d.members = normalBackup ? [...normalBackup.members] : []
     d.keywords = normalBackup ? [...normalBackup.keywords] : []
-    d.interval = normalBackup?.interval && /^(\d+)(s|m|h)$/.test(normalBackup.interval) ? normalBackup.interval : '60s'
+    d.interval = normalBackup?.interval && /^(\d+)(s|m|h)$/.test(normalBackup.interval) ? normalBackup.interval : '300s'
     if (typeof d.tolerance !== 'number') d.tolerance = 100
   }
   checkedAvailable.value = []
@@ -1290,20 +1290,20 @@ const intervalToSeconds = (value: string | undefined, fallback: number) => {
 
 const urltestIntervalSeconds = computed<number>({
   get: () => {
-    return intervalToSeconds(draft.value?.interval, 60)
+    return intervalToSeconds(draft.value?.interval, 300)
   },
   set: (v: number) => {
     if (!draft.value) return
     // 不在每次按键时套用最小值:用户输入 120 时会先经过 1、12,立即钳成 5
     // 就永远输不出 120。失焦时再统一校正到 5~86400。
-    const n = Number.isFinite(v) ? Math.min(86400, Math.max(0, Math.floor(v))) : 60
+    const n = Number.isFinite(v) ? Math.min(86400, Math.max(0, Math.floor(v))) : 300
     draft.value.interval = `${n}s`
   },
 })
 
 const normalizeIntervalSeconds = () => {
   if (!draft.value) return
-  const n = intervalToSeconds(draft.value.interval, 60)
+  const n = intervalToSeconds(draft.value.interval, 300)
   draft.value.interval = `${Math.min(86400, Math.max(5, n))}s`
 }
 
@@ -1475,7 +1475,7 @@ const createAutoGroups = async () => {
         // 关键词直接用国家目录里的那份,和地区词典是同一套词
         keywords: [...country.keywords],
         members: [],
-        ...(type === 'urltest' ? { interval: '60s', tolerance: 100 } : {}),
+        ...(type === 'urltest' ? { interval: '300s', tolerance: 100 } : {}),
       })
     }
   }

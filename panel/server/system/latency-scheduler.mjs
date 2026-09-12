@@ -17,7 +17,7 @@ import { kernelTestUrl } from '../engine/test-url.mjs'
 
 export { parseDuration }
 
-const DEFAULT_INTERVAL_MS = 60_000
+const DEFAULT_INTERVAL_MS = 300_000
 const latestTime = (proxy) => {
   const history = proxy && Array.isArray(proxy.history) ? proxy.history : []
   const last = history[history.length - 1]

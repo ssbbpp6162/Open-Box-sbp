@@ -300,7 +300,7 @@ const intervalText = (interval: string) => {
 const testMeta = computed(() => {
   const g = managedGroup.value
   if (!g || (g.type !== 'urltest' && g.type !== 'failover')) return ''
-  const interval = g.interval || '60s'
+  const interval = g.interval || '300s'
   const base = `${t('groupInterval')} ${intervalText(interval)} · ${t('groupTolerance')} ${g.tolerance ?? 100} ${t('groupUnitMs')}`
   const lastSwitch = g.type === 'failover' ? failoverLastSwitchText(props.name, failoverLanes.value) : ''
   return lastSwitch ? `${base} · ${lastSwitch}` : base
