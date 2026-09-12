@@ -30,6 +30,10 @@ test('subscription share management and public URL', async () => {
     assert.equal(regenerated.status, 200)
     const next = (await regenerated.json()).share
     assert.notEqual(next.token, share.token)
+    const disabled = await fetch(`${base}/api/openbox/subscription-shares/${share.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled: false }) })
+    assert.equal(disabled.status, 200)
+    assert.equal((await disabled.json()).share.enabled, false)
+    assert.equal((await fetch(`${base}/sub/${next.token}`)).status, 404)
     assert.equal(store.getSubscriptionShares().length, 1)
   } finally { await close() }
 })

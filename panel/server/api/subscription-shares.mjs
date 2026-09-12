@@ -23,6 +23,7 @@ const normalizeRecord = (raw) => ({
   subscriptionIds: Array.isArray(raw?.subscriptionIds) ? raw.subscriptionIds.filter((id) => typeof id === 'string') : [],
   host: typeof raw?.host === 'string' ? raw.host.trim() : '',
   protocol: normalizeProtocol(raw?.protocol),
+  enabled: raw?.enabled !== false,
   createdAt: Number(raw?.createdAt) || now(),
   updatedAt: Number(raw?.updatedAt) || now(),
 })
@@ -70,6 +71,7 @@ export const registerPublicSubscriptionShareRoutes = (app, { store, fetchImpl = 
     try {
       const share = store.getSubscriptionShares().map(normalizeRecord).find((item) => item.token === req.params.token)
       if (!share) return res.status(404).type('text/plain').send('subscription share not found')
+      if (!share.enabled) return res.status(404).type('text/plain').send('subscription share disabled')
       const subscriptions = store.getSubscriptions()
       const selected = share.subscriptionIds.map((id) => subscriptions.find((s) => s.id === id)).filter(Boolean)
       const parts = []
@@ -108,7 +110,7 @@ export const registerSubscriptionShareRoutes = (app, { store } = {}) => {
     if (!host) return res.status(400).json({ error: 'host is required' })
     const protocol = normalizeProtocol(req.body?.protocol) || 'https'
     const timestamp = now()
-    const share = { id: tokenFor(), name, host, protocol, token: tokenFor(), subscriptionIds, createdAt: timestamp, updatedAt: timestamp }
+    const share = { id: tokenFor(), name, host, protocol, enabled: true, token: tokenFor(), subscriptionIds, createdAt: timestamp, updatedAt: timestamp }
     store.setSubscriptionShares([...store.getSubscriptionShares(), share])
     return res.status(201).json({ share })
   })
@@ -127,7 +129,8 @@ export const registerSubscriptionShareRoutes = (app, { store } = {}) => {
     const host = req.body?.host === undefined ? current.host : (typeof req.body.host === 'string' ? req.body.host.trim() : '')
     if (!host) return res.status(400).json({ error: 'host is required' })
     const protocol = req.body?.protocol === undefined ? current.protocol : normalizeProtocol(req.body.protocol)
-    const updated = { ...current, name, host, protocol, subscriptionIds, token: req.body?.regenerate ? tokenFor() : current.token, updatedAt: now() }
+    const enabled = req.body?.enabled === undefined ? current.enabled : req.body.enabled !== false
+    const updated = { ...current, name, host, protocol, enabled, subscriptionIds, token: req.body?.regenerate ? tokenFor() : current.token, updatedAt: now() }
     list[index] = updated
     store.setSubscriptionShares(list)
     return res.json({ share: updated })

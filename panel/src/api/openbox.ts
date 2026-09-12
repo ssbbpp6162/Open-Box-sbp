@@ -284,6 +284,7 @@ export interface OpenboxSubscriptionShare {
   name: string
   host: string
   protocol: 'http' | 'https' | ''
+  enabled: boolean
   token: string
   subscriptionIds: string[]
   createdAt: number
@@ -452,7 +453,7 @@ export const createSubscriptionShare = async (payload: { name: string; host: str
   return data.share
 }
 
-export const updateSubscriptionShare = async (id: string, payload: { name: string; host: string; protocol: 'http' | 'https'; subscriptionIds: string[]; regenerate?: boolean }): Promise<OpenboxSubscriptionShare> => {
+export const updateSubscriptionShare = async (id: string, payload: { name: string; host: string; protocol: 'http' | 'https'; subscriptionIds: string[]; enabled?: boolean; regenerate?: boolean }): Promise<OpenboxSubscriptionShare> => {
   const data = await requestJson<{ share: OpenboxSubscriptionShare }>(`/api/openbox/subscription-shares/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),

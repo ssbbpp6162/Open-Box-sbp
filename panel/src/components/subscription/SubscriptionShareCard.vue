@@ -15,13 +15,13 @@
         暂无订阅分享，点击右上角“添加”创建
       </div>
       <div v-else class="divide-base-content/10 divide-y">
-        <div v-for="share in shares" :key="share.id" class="flex flex-wrap items-center gap-3 py-3 first:pt-1 last:pb-1">
+        <div v-for="share in shares" :key="share.id" class="flex flex-wrap items-center gap-3 py-3 first:pt-1 last:pb-1" :class="share.enabled === false && 'opacity-50'">
         <div class="min-w-0 flex-1">
           <div class="flex min-w-0 items-center gap-2 text-sm font-medium"><span class="min-w-0 truncate">{{ share.name }}</span><span v-if="selectedNames(share).length" class="text-base-content/55 min-w-0 truncate font-normal">· {{ selectedNames(share).join('、') }}</span></div>
           <div class="text-base-content/55 mt-1 truncate font-mono text-xs">{{ shareUrl(share) }}</div>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" class="btn btn-ghost btn-sm btn-square" title="二维码" @click="openQr(share)"><QrCodeIcon class="h-4 w-4" /></button>
+          <button type="button" class="btn btn-ghost btn-sm btn-square" title="启用/停用" :class="share.enabled === false ? 'text-base-content/40' : 'text-success'" @click="toggle(share)"><PowerIcon class="h-4 w-4" /></button>
           <button type="button" class="btn btn-ghost btn-sm btn-square" title="复制链接" @click="copy(shareUrl(share))"><ClipboardDocumentIcon class="h-4 w-4" /></button>
           <button type="button" class="btn btn-ghost btn-sm btn-square" title="重新生成" :disabled="busy" @click="regenerate(share)"><ArrowPathIcon class="h-4 w-4" /></button>
           <button type="button" class="btn btn-ghost btn-sm btn-square" title="编辑" @click="openEdit(share)"><PencilSquareIcon class="h-4 w-4" /></button>
@@ -68,8 +68,9 @@ import { computed, reactive, ref, watch } from 'vue'
 import DialogWrapper from '@/components/common/DialogWrapper.vue'
 import type { OpenboxSubscription, OpenboxSubscriptionShare } from '@/api/openbox'
 import { createSubscriptionShare, deleteSubscriptionShare, regenerateSubscriptionShare, updateSubscriptionShare } from '@/api/openbox'
+import { copyText as copyToClipboard } from '@/helper/clipboard'
 import { showNotification } from '@/helper/notification'
-import { ArrowPathIcon, ClipboardDocumentIcon, PencilSquareIcon, PlusIcon, QrCodeIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, ClipboardDocumentIcon, PencilSquareIcon, PlusIcon, PowerIcon, TrashIcon } from '@heroicons/vue/24/outline'
 
 const props = defineProps<{ subscriptions: OpenboxSubscription[]; shares: OpenboxSubscriptionShare[] }>()
 const emit = defineEmits<{ changed: [] }>()
@@ -110,8 +111,8 @@ const save = async () => {
     await makeQr(share); emit('changed'); dialogOpen.value = false; showNotification({ content: '订阅分享已保存', type: 'alert-success' })
   } catch (error) { showNotification({ content: '订阅分享保存失败', type: 'alert-error', params: { message: error instanceof Error ? error.message : String(error) } }) } finally { busy.value = false }
 }
+const toggle = async (share: OpenboxSubscriptionShare) => { if (busy.value) return; busy.value = true; try { await updateSubscriptionShare(share.id, { name: share.name, host: share.host, protocol: (share.protocol || currentProtocol()) as 'http' | 'https', subscriptionIds: share.subscriptionIds, enabled: share.enabled === false }) ; emit('changed') } finally { busy.value = false } }
 const regenerate = async (share: OpenboxSubscriptionShare) => { if (busy.value) return; busy.value = true; try { await regenerateSubscriptionShare(share.id); emit('changed') } finally { busy.value = false } }
 const remove = async (share: OpenboxSubscriptionShare) => { if (busy.value || !window.confirm(`确定删除“${share.name}”？`)) return; busy.value = true; try { await deleteSubscriptionShare(share.id); emit('changed') } finally { busy.value = false } }
-const openQr = async (share: OpenboxSubscriptionShare) => { reset(); editing.value = share; form.name = share.name; form.protocol = share.protocol || currentProtocol(); form.host = share.host || currentHost(); form.subscriptionIds = [...share.subscriptionIds]; await makeQr(share); dialogOpen.value = true }
-const copy = async (value: string) => { try { await navigator.clipboard.writeText(value); showNotification({ content: 'copySuccess', type: 'alert-success' }) } catch { showNotification({ content: 'copyFailed', type: 'alert-error' }) } }
+const copy = async (value: string) => { const ok = await copyToClipboard(value); showNotification({ content: ok ? 'copySuccess' : 'copyFailed', type: ok ? 'alert-success' : 'alert-error' }) }
 </script>
