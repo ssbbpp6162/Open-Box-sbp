@@ -24,6 +24,13 @@ def build(stage, output):
     meta['geoDate'] = geo['date']
     (stage / 'meta.json').write_text(json.dumps(meta, indent=2) + '\n')
     manifest = {'schema': 1, 'version': meta['version'], 'arch': meta['arch'], 'components': {}}
+    # License copies travel in the small app update too; missing documentation must
+    # not force a download of an otherwise identical kernel/runtime.
+    licenses = stage / 'panel/server/resources/licenses'
+    licenses.mkdir(parents=True, exist_ok=True)
+    for source, name in [('bin/sing-box.LICENSE', 'sing-box.LICENSE'), ('node/LICENSE', 'node.LICENSE')]:
+        if (stage / source).is_file():
+            (licenses / name).write_bytes((stage / source).read_bytes())
     layouts = {
         'app': (meta['version'], ['panel', 'openwrt', 'meta.json', 'uninstall.sh', 'update.sh']),
         'runtime': (meta['nodeVersion'], ['node']),
@@ -47,7 +54,8 @@ def build(stage, output):
         if kind in ('kernel', 'runtime'):
             component['files'] = {p.relative_to(stage).as_posix(): sha(p)
                                   for item in roots for p in sorted((stage / item).rglob('*'))
-                                  if p.is_file() and not (kind == 'kernel' and p.name.endswith('.BUILD-INFO.json'))}
+                                  if p.is_file() and ((kind == 'kernel' and p.name == 'sing-box')
+                                                     or (kind == 'runtime' and p.name != 'LICENSE'))}
         elif kind == 'geo':
             component['manifestSha256'] = sha(stage / geo_dir / 'manifest.json')
         manifest['components'][kind] = component
