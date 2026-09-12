@@ -3,6 +3,8 @@ import dns from 'node:dns/promises'
 import express from 'express'
 import YAML from 'yaml'
 import { decodeBase64, isProbablyBase64 } from '../engine/codec.mjs'
+import { emitEndpoint } from '../engine/emit-endpoint.mjs'
+import { emitOutbound } from '../engine/emit-outbound.mjs'
 import { detectSubscriptionFormat, parseSubscription } from '../engine/subscription.mjs'
 import { applySubscriptionShareNames, toClashProxy } from '../engine/subscription-share-names.mjs'
 import { fetchSubscriptionText, subscriptionUrls } from './subscriptions.mjs'
@@ -12,6 +14,24 @@ const tokenFor = () => randomBytes(24).toString('hex')
 const now = () => Date.now()
 const cleanName = (value) => typeof value === 'string' ? value.trim().slice(0, MAX_NAME) : ''
 const normalizeProtocol = (value) => value === 'http' || value === 'https' ? value : ''
+
+// 订阅成功导入后,节点已经保存在本机节点池。分享优先使用这份快照,避免每次访问分享
+// 地址都重新请求机场；机场临时 reset、超时或限流不应让已经导入成功的节点全部失效。
+// 用 Open-Box 自己的 sing-box emitter 重建配置,保证协议字段与面板实际使用的配置一致。
+const serializeStoredNodes = (nodes) => {
+  const outbounds = []
+  const endpoints = []
+  for (const node of nodes) {
+    try {
+      if (node.type === 'wireguard') endpoints.push(emitEndpoint(node))
+      else outbounds.push(emitOutbound(node))
+    } catch {
+      // 节点池中可能留有旧版本导入的未知协议；跳过这一条，不能让整份分享失效。
+    }
+  }
+  if (!outbounds.length && !endpoints.length) return ''
+  return JSON.stringify({ outbounds, ...(endpoints.length ? { endpoints } : {}) }, null, 2)
+}
 
 const normalizeIds = (value, subscriptions) => {
   if (!Array.isArray(value)) return []
@@ -42,6 +62,8 @@ const sourceText = async (sub, { fetchImpl, lookup, nodes }) => {
   }
   const prepare = (text) => applySubscriptionShareNames(normalizeContent(text), sub, nodes)
   if (typeof sub?.content === 'string' && sub.content.trim()) return prepare(sub.content)
+  const stored = nodes.filter((node) => node && node.subscriptionId === sub.id)
+  if (stored.length) return serializeStoredNodes(stored)
   const url = subscriptionUrls(sub)[0]
   if (!url) return ''
   return prepare(await fetchSubscriptionText(url, fetchImpl, lookup, 'Open-Box/1.0'))
@@ -70,12 +92,20 @@ const mergeContents = (parts) => {
   }
   if (parsed.every((p) => p.kind === 'singbox')) {
     const outbounds = parsed.flatMap((p) => p.value.outbounds || [])
-    return { body: JSON.stringify({ outbounds }, null, 2), type: 'application/json; charset=utf-8' }
+    const endpoints = parsed.flatMap((p) => p.value.endpoints || [])
+    return { body: JSON.stringify({ outbounds, ...(endpoints.length ? { endpoints } : {}) }, null, 2), type: 'application/json; charset=utf-8' }
   }
   if (parsed.every((p) => p.kind === 'sharelink')) {
     return { body: parsed.map((p) => p.value).join('\n'), type: 'text/plain; charset=utf-8' }
   }
-  return { body: nonempty.join('\n'), type: 'text/plain; charset=utf-8' }
+  // URL 订阅、粘贴内容和本机快照可能是不同格式，直接拼接会生成客户端无法解析的
+  // 半份 YAML/JSON。统一转成 sing-box JSON；Clash 客户端在下方按 User-Agent 转成
+  // Clash YAML，Karing / sing-box 客户端可直接读取这份标准 JSON。
+  const nodes = parsed.flatMap((part) => {
+    try { return parseSubscription(part.kind === 'sharelink' ? part.value : nonempty[parsed.indexOf(part)]).nodes } catch { return [] }
+  })
+  const body = serializeStoredNodes(nodes)
+  return body ? { body, type: 'application/json; charset=utf-8' } : { body: nonempty.join('\n'), type: 'text/plain; charset=utf-8' }
 }
 
 export const registerPublicSubscriptionShareRoutes = (app, { store, fetchImpl = globalThis.fetch, lookup = dns.lookup } = {}) => {

@@ -53,6 +53,22 @@ test('public URL decodes base64 subscription content before serving', async () =
   } finally { await close() }
 })
 
+test('public URL uses imported node snapshot instead of re-fetching a reset source', async () => {
+  const { store, base, close } = await setup()
+  try {
+    const source = 'ss://YWVzLTI1Ni1nY206c2VjcmV0cHc=@proxy.example:8388#香港01'
+    const node = parseSubscription(source).nodes[0]
+    store.setSubscriptions([{ id: 'one', name: 'One', url: 'https://source.example/sub', nodeCount: 1 }])
+    store.setNodes([{ ...node, subscriptionId: 'one', tag: '香港-01' }])
+    store.setSubscriptionShares([{ id: 'share', token: 'c'.repeat(48), name: 'snapshot', subscriptionIds: ['one'] }])
+    const response = await fetch(`${base}/sub/${'c'.repeat(48)}`)
+    assert.equal(response.status, 200)
+    const parsed = parseSubscription(await response.text())
+    assert.equal(parsed.format, 'singbox')
+    assert.equal(parsed.nodes[0].tag, '香港-01')
+  } finally { await close() }
+})
+
 test('public share applies current per-subscription naming after decoding and before merging', async () => {
   const { store, base, close } = await setup()
   try {
@@ -84,5 +100,8 @@ test('public share returns Clash YAML when requested by a Clash client', async (
     const body = await response.text()
     assert.match(body, /^proxies:/)
     assert.equal(YAML.parse(body).proxies[0].name, '香港-01')
+    assert.equal(YAML.parse(body).proxies[0].type, 'anytls')
+    assert.equal(YAML.parse(body).proxies[0].password, 'test-password')
+    assert.equal(YAML.parse(body).proxies[0].servername, 'tls.example')
   } finally { await close() }
 })

@@ -115,9 +115,26 @@ export const applySubscriptionShareNames = (content, subscription, storedNodes =
 // Clash 节点对象；这里只转换连接参数，不丢弃名称、服务器和认证信息。
 export const toClashProxy = (node) => {
   const fields = node.fields || {}
-  const proxy = { name: node.tag, type: node.type === 'shadowsocks' ? 'ss' : node.type, server: node.server, port: node.server_port }
-  const copy = ['method', 'password', 'uuid', 'alter_id', 'security', 'flow', 'username', 'obfs', 'private_key', 'peer_public_key', 'local_address']
-  for (const key of copy) if (fields[key] !== undefined) proxy[key === 'private_key' ? 'private-key' : key] = fields[key]
+  const type = node.type === 'shadowsocks' ? 'ss' : node.type === 'socks' ? 'socks5' : node.type
+  const proxy = { name: node.tag, type, server: node.server, port: node.server_port }
+  const copy = ['password', 'uuid', 'flow', 'username', 'obfs']
+  for (const key of copy) if (fields[key] !== undefined) proxy[key] = fields[key]
+  if (node.type === 'shadowsocks' && fields.method) proxy.cipher = fields.method
+  if (node.type === 'vmess') {
+    proxy.cipher = fields.security || 'auto'
+    proxy.alterId = Number.parseInt(fields.alter_id ?? 0, 10) || 0
+  }
+  if (node.type === 'wireguard') {
+    if (fields.private_key) proxy['private-key'] = fields.private_key
+    if (fields.peer_public_key) proxy['public-key'] = fields.peer_public_key
+    const address = Array.isArray(fields.local_address) ? fields.local_address[0] : fields.local_address
+    if (address) proxy.ip = String(address).replace(/\/\d+$/, '')
+  }
+  if (fields.plugin) {
+    proxy.plugin = fields.plugin === 'obfs-local' ? 'obfs' : fields.plugin
+    const opts = Object.fromEntries(String(fields.plugin_opts || '').split(';').map((item) => item.split('=').map((v) => v.trim())).filter(([key]) => key))
+    if (Object.keys(opts).length) proxy['plugin-opts'] = opts
+  }
   if (fields.tls) {
     proxy.tls = fields.tls.enabled !== false
     if (fields.tls.server_name) proxy.servername = fields.tls.server_name
@@ -127,7 +144,7 @@ export const toClashProxy = (node) => {
   }
   const transport = fields.transport
   if (transport) {
-    proxy.network = transport.type
+    proxy.network = transport.type === 'http' ? 'h2' : transport.type
     if (transport.type === 'ws') proxy['ws-opts'] = { ...(transport.path ? { path: transport.path } : {}), ...(transport.headers ? { headers: transport.headers } : {}) }
     if (transport.type === 'grpc' && transport.service_name) proxy['grpc-opts'] = { 'grpc-service-name': transport.service_name }
     if (transport.type === 'http') proxy['http-opts'] = { ...(transport.path ? { path: [transport.path] } : {}), ...(transport.headers?.Host ? { headers: { Host: [transport.headers.Host] } } : {}) }
