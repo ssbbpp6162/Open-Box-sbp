@@ -20,6 +20,7 @@ const normalizeRecord = (raw) => ({
   name: cleanName(raw?.name) || '订阅分享',
   token: typeof raw?.token === 'string' && raw.token.length >= 32 ? raw.token : tokenFor(),
   subscriptionIds: Array.isArray(raw?.subscriptionIds) ? raw.subscriptionIds.filter((id) => typeof id === 'string') : [],
+  host: typeof raw?.host === 'string' ? raw.host.trim() : '',
   createdAt: Number(raw?.createdAt) || now(),
   updatedAt: Number(raw?.updatedAt) || now(),
 })
@@ -101,8 +102,10 @@ export const registerSubscriptionShareRoutes = (app, { store } = {}) => {
     if (!name) return res.status(400).json({ error: 'name is required' })
     const subscriptionIds = normalizeIds(req.body?.subscriptionIds, store.getSubscriptions())
     if (!subscriptionIds.length) return res.status(400).json({ error: 'select at least one subscription' })
+    const host = typeof req.body?.host === 'string' ? req.body.host.trim() : ''
+    if (!host) return res.status(400).json({ error: 'host is required' })
     const timestamp = now()
-    const share = { id: tokenFor(), name, token: tokenFor(), subscriptionIds, createdAt: timestamp, updatedAt: timestamp }
+    const share = { id: tokenFor(), name, host, token: tokenFor(), subscriptionIds, createdAt: timestamp, updatedAt: timestamp }
     store.setSubscriptionShares([...store.getSubscriptionShares(), share])
     return res.status(201).json({ share })
   })
@@ -118,7 +121,9 @@ export const registerSubscriptionShareRoutes = (app, { store } = {}) => {
       ? current.subscriptionIds
       : normalizeIds(req.body.subscriptionIds, store.getSubscriptions())
     if (!subscriptionIds.length) return res.status(400).json({ error: 'select at least one subscription' })
-    const updated = { ...current, name, subscriptionIds, token: req.body?.regenerate ? tokenFor() : current.token, updatedAt: now() }
+    const host = req.body?.host === undefined ? current.host : (typeof req.body.host === 'string' ? req.body.host.trim() : '')
+    if (!host) return res.status(400).json({ error: 'host is required' })
+    const updated = { ...current, name, host, subscriptionIds, token: req.body?.regenerate ? tokenFor() : current.token, updatedAt: now() }
     list[index] = updated
     store.setSubscriptionShares(list)
     return res.json({ share: updated })

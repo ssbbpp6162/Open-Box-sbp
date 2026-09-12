@@ -19,7 +19,7 @@ const setup = async () => {
 test('subscription share management and public URL', async () => {
   const { store, base, close } = await setup()
   try {
-    const createdResponse = await fetch(`${base}/api/openbox/subscription-shares`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: '手机', subscriptionIds: ['one'] }) })
+    const createdResponse = await fetch(`${base}/api/openbox/subscription-shares`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: '手机', host: 'router.local:2026', subscriptionIds: ['one'] }) })
     assert.equal(createdResponse.status, 201)
     const { share } = await createdResponse.json()
     assert.equal(share.subscriptionIds[0], 'one')
@@ -33,4 +33,3 @@ test('subscription share management and public URL', async () => {
     assert.equal(store.getSubscriptionShares().length, 1)
   } finally { await close() }
 })
-

@@ -282,6 +282,7 @@ export interface OpenboxSubscription {
 export interface OpenboxSubscriptionShare {
   id: string
   name: string
+  host: string
   token: string
   subscriptionIds: string[]
   createdAt: number
@@ -442,7 +443,7 @@ export const fetchSubscriptionShares = async (): Promise<OpenboxSubscriptionShar
   return Array.isArray(data.shares) ? data.shares : []
 }
 
-export const createSubscriptionShare = async (payload: { name: string; subscriptionIds: string[] }): Promise<OpenboxSubscriptionShare> => {
+export const createSubscriptionShare = async (payload: { name: string; host: string; subscriptionIds: string[] }): Promise<OpenboxSubscriptionShare> => {
   const data = await requestJson<{ share: OpenboxSubscriptionShare }>('/api/openbox/subscription-shares', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -450,7 +451,7 @@ export const createSubscriptionShare = async (payload: { name: string; subscript
   return data.share
 }
 
-export const updateSubscriptionShare = async (id: string, payload: { name: string; subscriptionIds: string[]; regenerate?: boolean }): Promise<OpenboxSubscriptionShare> => {
+export const updateSubscriptionShare = async (id: string, payload: { name: string; host: string; subscriptionIds: string[]; regenerate?: boolean }): Promise<OpenboxSubscriptionShare> => {
   const data = await requestJson<{ share: OpenboxSubscriptionShare }>(`/api/openbox/subscription-shares/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
