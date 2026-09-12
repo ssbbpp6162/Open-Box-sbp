@@ -36,7 +36,7 @@
   <DialogWrapper v-model="dialogOpen" :title="editing ? '编辑订阅分享' : '新增订阅分享'" box-class="w-full max-w-3xl">
     <div class="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
       <div class="flex min-h-0 flex-col gap-2">
-        <div class="text-sm font-medium">选择要分享的订阅节点</div>
+        <div class="text-xs font-medium">选择要分享的订阅节点</div>
         <div class="max-h-80 overflow-y-auto pr-1">
           <label v-for="sub in subscriptions" :key="sub.id" class="border-base-content/10 flex items-center gap-2 border-b py-2 text-sm first:border-t">
             <input v-model="form.subscriptionIds" type="checkbox" class="checkbox checkbox-sm" :value="sub.id" />
@@ -46,13 +46,17 @@
         <p v-if="!subscriptions.length" class="text-base-content/55 text-xs">请先添加至少一条订阅</p>
       </div>
       <div class="flex flex-col gap-3">
-        <label class="flex flex-col gap-1 text-sm"><span>标题</span><input v-model="form.name" class="input input-sm w-full" placeholder="例如：手机代理订阅" /></label>
-        <label class="flex flex-col gap-1 text-sm"><span>域名或 IP</span><div class="join w-full"><select v-model="form.protocol" class="select select-sm join-item"><option value="http">http://</option><option value="https">https://</option></select><input v-model="form.host" class="input input-sm join-item min-w-0 flex-1 font-mono" placeholder="当前地址" /></div></label>
-        <div class="flex flex-col items-center gap-3 py-2">
-          <img v-if="qrDataUrl" :src="qrDataUrl" alt="订阅分享二维码" class="h-40 w-40" />
-          <div class="flex w-full gap-2"><input :value="displayUrl" readonly class="input input-sm min-w-0 flex-1 font-mono text-xs" /><button type="button" class="btn btn-sm" @click="copy(displayUrl)">复制</button></div>
-          <p v-if="!generatedShare" class="text-base-content/50 text-xs">保存后此地址和二维码生效</p>
+        <label class="flex flex-col gap-1"><span class="text-xs font-medium">标题</span><input v-model="form.name" class="input input-sm w-full" placeholder="例如：手机代理订阅" /></label>
+        <label class="flex flex-col gap-1"><span class="text-xs font-medium">域名或 IP</span><div class="join w-full"><select v-model="form.protocol" class="select select-sm join-item"><option value="http">http://</option><option value="https">https://</option></select><input v-model="form.host" class="input input-sm join-item min-w-0 flex-1 font-mono" placeholder="当前地址" /></div></label>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium">分享链接</label>
+          <div class="join w-full">
+            <input :value="displayUrl" readonly class="input input-sm join-item min-w-0 flex-1 font-mono text-xs" />
+            <button type="button" class="btn btn-sm join-item" v-tip="'复制链接'" @click="copy(displayUrl)"><ClipboardDocumentIcon class="h-4 w-4" /></button>
+          </div>
         </div>
+        <img v-if="qrDataUrl" :src="qrDataUrl" alt="订阅分享二维码" class="h-44 w-44 self-center rounded-lg bg-white p-1" />
+        <p v-if="!generatedShare" class="text-base-content/60 text-xs">保存后此地址和二维码生效</p>
         <div class="flex justify-end gap-2 pt-1"><button type="button" class="btn btn-sm" @click="dialogOpen = false">取消</button><button type="button" class="btn btn-primary btn-sm" :disabled="busy" @click="save"><span v-if="busy" class="loading loading-spinner loading-xs" />保存并生成</button></div>
       </div>
     </div>
