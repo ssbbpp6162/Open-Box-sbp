@@ -634,14 +634,11 @@ fi
 # 子进程的那一行)带给子进程,不再通过命令行参数——子进程重新解析参数时会先从
 # 环境变量把它们读回来(见上方参数初始化处的说明)。
 #
-# 必须用 setsid 让后台进程彻底脱离当前会话/控制终端,防止 rpcd 那端后续的任何
-# 清理动作把它带着一起杀掉。并非所有固件都带 setsid;这里不再对着"没有 setsid"
-# 悄悄退化成普通的后台子 shell(`( cmd & )`)——那种后台子 shell 仍然留在 rpcd
-# fs.exec 这次调用的进程组/会话里,fs.exec 一返回,rpcd 后续任何清理动作(结束
-# 会话、按进程组收尾)都可能把它一起带走,升级下载到一半被杀掉,还留下一个
-# "看起来在跑、实际已经没了"的假状态,比明确报错更糟。所以本机确实缺 setsid 时,
-# 直接拒绝启动,如实告诉用户改走 SSH——用户自己的 SSH 会话有独立的生命周期,
-# 不会被 rpcd 提前收走。
+# 优先用 setsid 让后台进程彻底脱离当前会话/控制终端。部分 OpenWrt 固件没有
+# 单独的 setsid 链接,但 BusyBox 仍然编译了 setsid applet,所以两种入口都要探测。
+# 极简固件连 applet 也没有时,退回 nohup + 双重后台派发:忽略 HUP/TERM,关闭标准
+# 输入输出,并让第二层子进程在派发脚本退出后继续运行。这样不会因为 rpcd 的 fs.exec
+# 请求结束而在下载中途直接失败;状态文件仍由真正的 worker 写入,页面继续按原逻辑轮询。
 UPDATE_LOG="${TMPDIR:-/tmp}/openbox-update.log"
 if [ "$DETACH" = "1" ]; then
   # 先在派发进程里同步截断日志,而不是指望子进程的重定向去截断:fs.exec 一返回,
@@ -663,26 +660,26 @@ if [ "$DETACH" = "1" ]; then
   : > "$UPDATE_LOG" 2>/dev/null || true
   { echo "stage=starting"; } > "$STATUS_PATH" 2>/dev/null || true
   rm -f "$CANCEL_FLAG" 2>/dev/null || true
-  if ! command -v setsid >/dev/null 2>&1; then
-    # STATUS_PID 这时还没被赋值(还没走到下面"预检"那一段),write_status() 会
-    # 直接跳过、不产生任何文件 I/O(见该函数定义处的说明),这里手动写一份等价的
-    # 状态文件。同时往日志里补一行 `[open-box] 错误:` 前缀的说明——LuCI 页面的
-    # pollForUpdateCompletion() 靠这个前缀在日志里快速识别失败(几秒内),不用等
-    # 到新增的"20 秒仍卡在 starting"兜底超时才有反应(见 status.js 对应说明)。
-    _detach_msg="本机缺少 setsid 命令,无法安全地把升级放到后台运行(可能在 fs.exec 返回后被 rpcd 提前终止,导致升级下载到一半被杀掉)。请改用 SSH 登录路由器后手动执行:sh $INSTALL_ROOT/update.sh"
-    echo "[open-box] 错误:$_detach_msg" >> "$UPDATE_LOG" 2>/dev/null || true
-    {
-      echo "pid="
-      echo "stage=failed"
-      echo "bytes="
-      echo "total="
-      echo "message=$_detach_msg"
-    } > "$STATUS_PATH" 2>/dev/null || true
-    warn "$_detach_msg"
-    exit 0
+  if command -v setsid >/dev/null 2>&1; then
+    OPENBOX_UPDATE_CHANNEL_OVERRIDE="$CHANNEL_OVERRIDE" OPENBOX_UPDATE_MIRROR_PREFIX="$CLI_MIRROR_PREFIX" OPENBOX_UPDATE_EXPECT="$EXPECT_VERSION" OPENBOX_UPDATE_DISPATCHED=1 \
+      setsid sh "$0" >"$UPDATE_LOG" 2>&1 </dev/null &
+  elif command -v busybox >/dev/null 2>&1 && busybox setsid true >/dev/null 2>&1; then
+    # BusyBox 常见的编译方式是保留 applet、但不创建 /usr/bin/setsid 链接。
+    OPENBOX_UPDATE_CHANNEL_OVERRIDE="$CHANNEL_OVERRIDE" OPENBOX_UPDATE_MIRROR_PREFIX="$CLI_MIRROR_PREFIX" OPENBOX_UPDATE_EXPECT="$EXPECT_VERSION" OPENBOX_UPDATE_DISPATCHED=1 \
+      busybox setsid sh "$0" >"$UPDATE_LOG" 2>&1 </dev/null &
+  else
+    # 没有 setsid 的极简固件:双重 fork + nohup,避免把 worker 留在 fs.exec 的前台
+    # 会话里。nohup 会忽略挂断信号,两层 subshell 都关闭输出后立即返回。
+    info "本机未提供 setsid,使用 nohup 后台派发升级任务。"
+    (
+      trap '' HUP INT TERM
+      (
+        trap '' HUP INT TERM
+        OPENBOX_UPDATE_CHANNEL_OVERRIDE="$CHANNEL_OVERRIDE" OPENBOX_UPDATE_MIRROR_PREFIX="$CLI_MIRROR_PREFIX" OPENBOX_UPDATE_EXPECT="$EXPECT_VERSION" OPENBOX_UPDATE_DISPATCHED=1 \
+          nohup sh "$0" >"$UPDATE_LOG" 2>&1 </dev/null &
+      ) >/dev/null 2>&1 &
+    ) >/dev/null 2>&1 &
   fi
-  OPENBOX_UPDATE_CHANNEL_OVERRIDE="$CHANNEL_OVERRIDE" OPENBOX_UPDATE_MIRROR_PREFIX="$CLI_MIRROR_PREFIX" OPENBOX_UPDATE_EXPECT="$EXPECT_VERSION" OPENBOX_UPDATE_DISPATCHED=1 \
-    setsid sh "$0" >"$UPDATE_LOG" 2>&1 </dev/null &
   info "升级已在后台启动,日志:$UPDATE_LOG"
   exit 0
 fi
