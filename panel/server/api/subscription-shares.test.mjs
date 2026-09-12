@@ -37,3 +37,16 @@ test('subscription share management and public URL', async () => {
     assert.equal(store.getSubscriptionShares().length, 1)
   } finally { await close() }
 })
+
+test('public URL decodes base64 subscription content before serving', async () => {
+  const { store, base, close } = await setup()
+  try {
+    const encoded = Buffer.from('ss://example#one\n', 'utf8').toString('base64')
+    store.setSubscriptions([{ id: 'one', name: 'One', content: encoded, nodeCount: 1 }])
+    const createdResponse = await fetch(`${base}/api/openbox/subscription-shares`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'base64', host: 'router.local:2026', subscriptionIds: ['one'] }) })
+    const { share } = await createdResponse.json()
+    const response = await fetch(`${base}/sub/${share.token}`)
+    assert.equal(response.status, 200)
+    assert.equal(await response.text(), 'ss://example#one')
+  } finally { await close() }
+})

@@ -2,6 +2,8 @@ import { randomBytes } from 'node:crypto'
 import dns from 'node:dns/promises'
 import express from 'express'
 import YAML from 'yaml'
+import { decodeBase64, isProbablyBase64 } from '../engine/codec.mjs'
+import { detectSubscriptionFormat } from '../engine/subscription.mjs'
 import { fetchSubscriptionText, subscriptionUrls } from './subscriptions.mjs'
 
 const MAX_NAME = 120
@@ -29,10 +31,18 @@ const normalizeRecord = (raw) => ({
 })
 
 const sourceText = async (sub, { fetchImpl, lookup }) => {
-  if (typeof sub?.content === 'string' && sub.content.trim()) return sub.content.trim()
+  const normalizeContent = (value) => {
+    const text = value.trim()
+    if (!isProbablyBase64(text) || detectSubscriptionFormat(text) !== 'unknown') return text
+    try {
+      const decoded = decodeBase64(text)
+      return detectSubscriptionFormat(decoded) === 'unknown' ? text : decoded.trim()
+    } catch { return text }
+  }
+  if (typeof sub?.content === 'string' && sub.content.trim()) return normalizeContent(sub.content)
   const url = subscriptionUrls(sub)[0]
   if (!url) return ''
-  return fetchSubscriptionText(url, fetchImpl, lookup, 'Open-Box/1.0')
+  return normalizeContent(await fetchSubscriptionText(url, fetchImpl, lookup, 'Open-Box/1.0'))
 }
 
 const mergeContents = (parts) => {
