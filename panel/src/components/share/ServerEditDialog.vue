@@ -34,16 +34,6 @@
             </option>
           </select>
         </div>
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium">{{ $t('serverPortLabel') }}</label>
-          <input
-            v-model.number="form.port"
-            type="number"
-            min="1"
-            max="65535"
-            class="input input-sm w-full"
-          />
-        </div>
         <!-- 域名/IP:默认取当前打开面板的主机名,只进节点分享链接 -->
         <div class="flex flex-col gap-1">
           <label class="text-xs font-medium">{{ $t('serverAddressLabel') }}</label>
@@ -53,6 +43,16 @@
             class="input input-sm w-full"
             :placeholder="$t('serverAddressPlaceholder')"
             autocomplete="off"
+          />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium">{{ $t('serverPortLabel') }}</label>
+          <input
+            v-model.number="form.port"
+            type="number"
+            min="1"
+            max="65535"
+            class="input input-sm w-full"
           />
         </div>
 
@@ -205,7 +205,7 @@
       <img
         v-if="qrDataUrl"
         :src="qrDataUrl"
-        class="h-44 w-44 rounded-lg bg-white p-1"
+        class="h-44 w-44 self-center rounded-lg bg-white p-1"
         alt="QR"
       />
 
