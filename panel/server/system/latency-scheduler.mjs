@@ -112,7 +112,10 @@ export const createLatencyScheduler = ({
       const at = now()
       const due = g.members.filter((m) => {
         const t = latestTime(proxies[m])
-        const since = t || lastTested.get(m) || 0
+        // 内核的 /group/<tag>/delay 返回成功后,节点 history 可能还没在下一次
+        // /proxies 里反映出来。面板自己的记录必须和内核时间取较新者,否则同一轮
+        // 后面的共享组会读到旧 history,把同一个节点再测一次。
+        const since = Math.max(t, lastTested.get(m) || 0)
         return !since || at - since >= g.intervalMs
       })
       if (!due.length) continue

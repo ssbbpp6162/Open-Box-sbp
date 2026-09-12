@@ -165,6 +165,29 @@ test('到点按成员算:共用的成员刚被前一个组测过就不算,组里
   assert.equal(history.get()['hk-1'].length, 2)
 })
 
+test('内核测速结果尚未写回 /proxies 时,共享节点也不被后一个组重复测速', async () => {
+  const cfg = { outbounds: [
+    { type: 'urltest', tag: 'A', url: 'https://t', interval: '5m', outbounds: ['shared'] },
+    { type: 'urltest', tag: 'B', url: 'https://t', interval: '5m', outbounds: ['shared'] },
+  ] }
+  const proxies = { shared: { type: 'vless', history: [{ time: iso(T0), delay: 181 }] } }
+  const calls = []
+  const fetchImpl = async (url) => {
+    calls.push(String(url))
+    if (String(url).includes('/proxies')) return { ok: true, status: 200, json: async () => ({ proxies: JSON.parse(JSON.stringify(proxies)) }) }
+    return { ok: true, status: 200, json: async () => ({ delay: 184 }) }
+  }
+  const ctx = createMockContext({
+    files: { [paths.configPath]: JSON.stringify(cfg), '/proc/123/stat': '123 (sing-box) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 100 0', '/proc/uptime': '1000 0' },
+    execResults: { 'pidof sing-box': { code: 0, stdout: '123\n' } },
+  })
+  const store = memStore()
+  const s = createLatencyScheduler({ store, ctx, paths, history: createLatencyHistory({ store, now: () => T0 + 5 * 60_000 + 30_000 }), fetchImpl, now: () => T0 + 5 * 60_000 + 30_000, log: () => {} })
+  const result = await s.tick()
+  assert.deepEqual(result.tested, ['A'])
+  assert.equal(calls.filter((u) => u.includes('/group/')).length, 1)
+})
+
 test('组配置里的测速地址是 http:// 的,发给内核的组测速请求保留 HTTP', async () => {
   const httpConfig = { outbounds: [
     { type: 'urltest', tag: 'CF', url: 'http://cp.cloudflare.com/generate_204', interval: '5m', outbounds: ['cf-1'] },
