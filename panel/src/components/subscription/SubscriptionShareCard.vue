@@ -17,9 +17,8 @@
       <div v-else class="divide-base-content/10 divide-y">
         <div v-for="share in shares" :key="share.id" class="flex flex-wrap items-center gap-3 py-3 first:pt-1 last:pb-1">
         <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-medium">{{ share.name }}</div>
+          <div class="flex min-w-0 items-center gap-2 text-sm font-medium"><span class="min-w-0 truncate">{{ share.name }}</span><span v-if="selectedNames(share).length" class="text-base-content/55 min-w-0 truncate font-normal">· {{ selectedNames(share).join('、') }}</span></div>
           <div class="text-base-content/55 mt-1 truncate font-mono text-xs">{{ shareUrl(share) }}</div>
-          <div class="text-base-content/45 mt-1 text-xs">{{ selectedNames(share).join('、') }}</div>
         </div>
         <div class="flex items-center gap-1">
           <button type="button" class="btn btn-ghost btn-sm btn-square" title="二维码" @click="openQr(share)"><QrCodeIcon class="h-4 w-4" /></button>
