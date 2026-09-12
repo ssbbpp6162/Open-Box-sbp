@@ -3,6 +3,7 @@ import test from 'node:test'
 import express from 'express'
 import { createStore } from '../store/openbox-store.mjs'
 import { registerPublicSubscriptionShareRoutes, registerSubscriptionShareRoutes } from './subscription-shares.mjs'
+import { parseSubscription } from '../engine/subscription.mjs'
 
 const setup = async () => {
   const map = new Map()
@@ -48,5 +49,24 @@ test('public URL decodes base64 subscription content before serving', async () =
     const response = await fetch(`${base}/sub/${share.token}`)
     assert.equal(response.status, 200)
     assert.equal(await response.text(), 'ss://example#one')
+  } finally { await close() }
+})
+
+test('public share applies current per-subscription naming after decoding and before merging', async () => {
+  const { store, base, close } = await setup()
+  try {
+    const original = 'anytls://test-password@proxy.example:443?sni=tls.example#%E9%A6%99%E6%B8%AFA'
+    const subscriptions = [
+      { id: 'one', name: '机场', content: Buffer.from(original).toString('base64'), renameOptions: { enabled: true, usePrefix: true } },
+      { id: 'two', name: '原样', content: original, renameOptions: { enabled: false } },
+    ]
+    store.setSubscriptions(subscriptions)
+    store.setSubscriptionShares([{ id: 'share', token: 'a'.repeat(48), name: '聚合', subscriptionIds: ['one', 'two'] }])
+    const response = await fetch(`${base}/sub/${'a'.repeat(48)}`)
+    assert.equal(response.status, 200)
+    assert.deepEqual(parseSubscription(await response.text()).nodes.map((node) => node.tag), ['机场 | 香港-01', '香港A'])
+    store.setSubscriptions([{ ...subscriptions[0], name: '新名称' }, subscriptions[1]])
+    const updated = await fetch(`${base}/sub/${'a'.repeat(48)}`)
+    assert.deepEqual(parseSubscription(await updated.text()).nodes.map((node) => node.tag), ['新名称 | 香港-01', '香港A'])
   } finally { await close() }
 })

@@ -131,6 +131,16 @@ export const excludeNodes = (nodes, options = {}) => {
   return { kept, excluded, disabled }
 }
 
+// 前缀始终从当前订阅名派生，忽略旧档案中保存的 prefix 文本。
+export const subscriptionRenameOptions = (options, name) => {
+  const raw = options && typeof options === 'object' ? options : undefined
+  const base = raw ? Object.fromEntries(Object.entries(raw).filter(([key]) => key !== 'prefix')) : undefined
+  const effective = base && base.usePrefix && typeof name === 'string' && name.trim()
+    ? { ...base, prefix: name.trim() }
+    : base
+  return { base, effective }
+}
+
 export const renameNodes = (nodes, options = {}) => {
   // enabled=false:不改名,节点保留机场的原始名字(GitHub #3 要的"保留原始节点名"),手工改名和订阅名前缀照常;
   // 地区仍按关键词识别,国旗和按地区选成员的节点组靠 regionCode / regionName,不靠名字

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import dns from 'node:dns/promises'
 import express from 'express'
 import { parseSubscription } from '../engine/subscription.mjs'
-import { renameNodes, previewRename, excludeNodes } from '../engine/rename.mjs'
+import { renameNodes, previewRename, excludeNodes, subscriptionRenameOptions } from '../engine/rename.mjs'
 import { groupNodesByRegion } from '../engine/groups.mjs'
 import { assertPublicUrl, pinnedLookup } from './net-guard.mjs'
 import { subscriptionFetch } from '../system/insecure-fetch.mjs'
@@ -246,16 +246,10 @@ export const resolveNodes = async ({ url, urls, content, name }, fetchImpl, rena
   const curl = curlFetch !== undefined ? curlFetch : (fetchImpl === subscriptionFetch ? curlFetchText : null)
   // renameNodes/groupNodesByRegion 的默认参数只兜底 undefined;显式传 null(合法 JSON 值)
   // 会在其内部触发 "options.xxx of null" —— 这里统一归一化,避免因此误判 400。
-  const raw = renameOptions && typeof renameOptions === 'object' ? renameOptions : undefined
   // prefix 是「usePrefix 开关 + 订阅名」的派生值,不进持久化的 renameOptions:
   // 存下前缀文本的话,订阅一改名,节点前缀还挂着旧名字。这里先把它剥掉,
   // 免得历史记录里残留的 prefix 在开关关掉之后还继续生效。
-  const base = raw
-    ? Object.fromEntries(Object.entries(raw).filter(([k]) => k !== 'prefix'))
-    : undefined
-  const opts = base && base.usePrefix && typeof name === 'string' && name.trim()
-    ? { ...base, prefix: name.trim() }
-    : base
+  const { base, effective: opts } = subscriptionRenameOptions(renameOptions, name)
   // 过滤必须发生在改名之前:renameNodes / previewRename 按下标一一对应,
   // 而且被过滤掉的条目连预览表都不该出现——它们压根不算节点。
   const finish = (parsed) => {

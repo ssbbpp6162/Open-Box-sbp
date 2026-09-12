@@ -4,6 +4,7 @@ import express from 'express'
 import YAML from 'yaml'
 import { decodeBase64, isProbablyBase64 } from '../engine/codec.mjs'
 import { detectSubscriptionFormat } from '../engine/subscription.mjs'
+import { applySubscriptionShareNames } from '../engine/subscription-share-names.mjs'
 import { fetchSubscriptionText, subscriptionUrls } from './subscriptions.mjs'
 
 const MAX_NAME = 120
@@ -30,7 +31,7 @@ const normalizeRecord = (raw) => ({
   updatedAt: Number(raw?.updatedAt) || now(),
 })
 
-const sourceText = async (sub, { fetchImpl, lookup }) => {
+const sourceText = async (sub, { fetchImpl, lookup, nodes }) => {
   const normalizeContent = (value) => {
     const text = value.trim()
     if (!isProbablyBase64(text) || detectSubscriptionFormat(text) !== 'unknown') return text
@@ -39,10 +40,11 @@ const sourceText = async (sub, { fetchImpl, lookup }) => {
       return detectSubscriptionFormat(decoded) === 'unknown' ? text : decoded.trim()
     } catch { return text }
   }
-  if (typeof sub?.content === 'string' && sub.content.trim()) return normalizeContent(sub.content)
+  const prepare = (text) => applySubscriptionShareNames(normalizeContent(text), sub, nodes)
+  if (typeof sub?.content === 'string' && sub.content.trim()) return prepare(sub.content)
   const url = subscriptionUrls(sub)[0]
   if (!url) return ''
-  return normalizeContent(await fetchSubscriptionText(url, fetchImpl, lookup, 'Open-Box/1.0'))
+  return prepare(await fetchSubscriptionText(url, fetchImpl, lookup, 'Open-Box/1.0'))
 }
 
 const mergeContents = (parts) => {
@@ -84,10 +86,10 @@ export const registerPublicSubscriptionShareRoutes = (app, { store, fetchImpl = 
       if (!share.enabled) return res.status(404).type('text/plain').send('subscription share disabled')
       const subscriptions = store.getSubscriptions()
       const selected = share.subscriptionIds.map((id) => subscriptions.find((s) => s.id === id)).filter(Boolean)
-      // 多条订阅并行回源，避免分享链接按订阅数量线性变慢；客户端通常有较短的
-      // 下载超时，串行请求会让本来可用的分享链接被误判为 502。Promise.all 保持
-      // 选中顺序，同时任一来源失败仍整体失败，避免生成不完整的配置。
-      const parts = await Promise.all(selected.map((sub) => sourceText(sub, { fetchImpl, lookup })))
+      // 并行回源缩短下载时间。保持选中顺序，任一来源失败仍整体失败，避免生成
+      // 不完整的配置。
+      const nodes = store.getNodes()
+      const parts = await Promise.all(selected.map((sub) => sourceText(sub, { fetchImpl, lookup, nodes })))
       const merged = mergeContents(parts)
       if (!merged.body) return res.status(404).type('text/plain').send('subscription share has no content')
       res.setHeader('Cache-Control', 'no-store')
