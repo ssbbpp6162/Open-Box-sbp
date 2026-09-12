@@ -6,6 +6,7 @@ import { DEFAULT_DIRECT_TEST_URL, DEFAULT_TEST_URL } from '../engine/test-url.mj
 export const KEYS = {
   profile: 'openbox/profile',
   subscriptions: 'openbox/subscriptions',
+  subscriptionShares: 'openbox/subscription-shares',
   nodes: 'openbox/nodes',
   groups: 'openbox/groups',
   deployState: 'openbox/deploy-state',
@@ -125,6 +126,16 @@ export const createStore = ({ get, set, del }, { randomHex = defaultRandomHex } 
     set(KEYS.subscriptions, JSON.stringify(Array.isArray(list) ? list : []))
   }
 
+  const getSubscriptionShares = () => {
+    const raw = get(KEYS.subscriptionShares)
+    const stored = parseJsonOr(raw, [])
+    return Array.isArray(stored) ? stored : []
+  }
+
+  const setSubscriptionShares = (list) => {
+    set(KEYS.subscriptionShares, JSON.stringify(Array.isArray(list) ? list : []))
+  }
+
   const getNodes = () => {
     const raw = get(KEYS.nodes)
     const stored = parseJsonOr(raw, [])
@@ -203,6 +214,8 @@ export const createStore = ({ get, set, del }, { randomHex = defaultRandomHex } 
     setGroups,
     getSubscriptions,
     setSubscriptions,
+    getSubscriptionShares,
+    setSubscriptionShares,
     getNodes,
     setNodes,
     getDeployState,

@@ -279,6 +279,15 @@ export interface OpenboxSubscription {
   updatedAt: number
 }
 
+export interface OpenboxSubscriptionShare {
+  id: string
+  name: string
+  token: string
+  subscriptionIds: string[]
+  createdAt: number
+  updatedAt: number
+}
+
 export interface OpenboxNodeSummary {
   tag: string
   originalTag: string
@@ -426,6 +435,36 @@ export const saveProfile = async (patch: Record<string, unknown>): Promise<Openb
 export const fetchSubscriptions = async (): Promise<OpenboxSubscription[]> => {
   const data = await requestJson<{ subscriptions: OpenboxSubscription[] }>('/api/openbox/subscriptions')
   return data.subscriptions
+}
+
+export const fetchSubscriptionShares = async (): Promise<OpenboxSubscriptionShare[]> => {
+  const data = await requestJson<{ shares: OpenboxSubscriptionShare[] }>('/api/openbox/subscription-shares')
+  return data.shares
+}
+
+export const createSubscriptionShare = async (payload: { name: string; subscriptionIds: string[] }): Promise<OpenboxSubscriptionShare> => {
+  const data = await requestJson<{ share: OpenboxSubscriptionShare }>('/api/openbox/subscription-shares', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.share
+}
+
+export const updateSubscriptionShare = async (id: string, payload: { name: string; subscriptionIds: string[]; regenerate?: boolean }): Promise<OpenboxSubscriptionShare> => {
+  const data = await requestJson<{ share: OpenboxSubscriptionShare }>(`/api/openbox/subscription-shares/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  return data.share
+}
+
+export const regenerateSubscriptionShare = async (id: string): Promise<OpenboxSubscriptionShare> => {
+  const data = await requestJson<{ share: OpenboxSubscriptionShare }>(`/api/openbox/subscription-shares/${encodeURIComponent(id)}/regenerate`, { method: 'POST' })
+  return data.share
+}
+
+export const deleteSubscriptionShare = async (id: string): Promise<void> => {
+  await requestJson(`/api/openbox/subscription-shares/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
 // Preview never persists — safe to call on every debounced keystroke. Accepts either a `url`

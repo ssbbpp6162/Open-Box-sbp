@@ -169,7 +169,7 @@ const fetchSubscriptionResponse = async (initialUrl, fetchImpl, lookup, userAgen
   }
 }
 
-const fetchSubscriptionText = async (url, fetchImpl, lookup, userAgent) => {
+export const fetchSubscriptionText = async (url, fetchImpl, lookup, userAgent) => {
   const res = await fetchSubscriptionResponse(url, fetchImpl, lookup, userAgent)
   return readSubscriptionBody(res, MAX_SUBSCRIPTION_RESPONSE_BYTES)
 }

@@ -41,6 +41,7 @@ import { flushDnsCache } from './system/dns-cache.mjs'
 import { startScheduler } from './system/scheduler.mjs'
 import { createTrafficCollector, createTrafficStore } from './system/traffic-collector.mjs'
 import { registerSubscriptionRoutes } from './api/subscriptions.mjs'
+import { registerPublicSubscriptionShareRoutes, registerSubscriptionShareRoutes } from './api/subscription-shares.mjs'
 import { subscriptionFetch } from './system/insecure-fetch.mjs'
 import { createStore } from './store/openbox-store.mjs'
 import { createRealContext } from './system/context-real.mjs'
@@ -767,6 +768,10 @@ const app = express()
 const server = http.createServer(app)
 const websocketServer = new WebSocketServer({ noServer: true })
 
+// 分享订阅是 capability URL：拿到随机 token 的设备可直接读取订阅内容，不需要面板登录。
+// 路由必须放在 /api 鉴权守卫之前；管理端的增删改仍注册在守卫之后。
+registerPublicSubscriptionShareRoutes(app, { store, fetchImpl: subscriptionFetch })
+
 // Express 默认路由大小写不敏感:GET /API/openbox/profile 会命中 /api/openbox/profile 的路由,
 // 但下面守卫中间件若只用精确前缀判断 req.path.startsWith('/api/') 就会放过它——必须在
 // 任何路由注册之前关掉大小写不敏感,否则 /API/... 绕过认证守卫却仍能打到真实 handler。
@@ -1102,6 +1107,7 @@ app.delete('/api/background-image', (_req, res) => {
 // 因此天然继承"未设密一律 403、已设密未认证一律 401"的保护,无需各自重复鉴权。
 // 订阅拉取用不校验证书的 fetch(自签 / 过期证书的自建订阅也能加),不能传系统 fetch 把它盖掉
 registerSubscriptionRoutes(app, { store, fetchImpl: subscriptionFetch })
+registerSubscriptionShareRoutes(app, { store })
 registerProfileRoutes(app, { store })
 registerDeployRoutes(app, { store, ctx: obCtx, paths: obPaths })
 registerServiceRoutes(app, { store, ctx: obCtx, paths: obPaths })

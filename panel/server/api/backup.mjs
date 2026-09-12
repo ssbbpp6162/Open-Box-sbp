@@ -38,6 +38,8 @@ export const buildBackup = (store, {
   if (subscriptions) {
     out.subscriptions = store.getSubscriptions()
     out.nodes = store.getNodes()
+    const shares = store.getSubscriptionShares()
+    if (shares.length) out.subscriptionShares = shares
   }
   if (panelStorage) {
     const entries = panelStorage.readEntries() || {}
@@ -85,11 +87,18 @@ export const applyBackup = (store, data, { subscriptionsMode = 'replace', panelS
 
   let subscriptions = null
   let nodes = null
+  let subscriptionShares = null
   if (data.subscriptions !== undefined || data.nodes !== undefined) {
     if (!Array.isArray(data.subscriptions) || !Array.isArray(data.nodes)) return { error: 'subscriptions / nodes 应为数组' }
     subscriptions = data.subscriptions.filter((s) => isPlainObject(s) && typeof s.id === 'string' && s.id)
     const ids = new Set(subscriptions.map((s) => s.id))
     nodes = data.nodes.filter((n) => isPlainObject(n) && typeof n.tag === 'string' && n.tag && ids.has(n.subscriptionId))
+  }
+  if (data.subscriptionShares !== undefined) {
+    if (!Array.isArray(data.subscriptionShares)) return { error: 'subscriptionShares 应为数组' }
+    const subscriptionIds = new Set([...store.getSubscriptions(), ...(subscriptions || [])].map((s) => s.id))
+    subscriptionShares = data.subscriptionShares.filter((share) => isPlainObject(share) && typeof share.id === 'string' && typeof share.token === 'string' && typeof share.name === 'string')
+      .map((share) => ({ ...share, subscriptionIds: Array.isArray(share.subscriptionIds) ? share.subscriptionIds.filter((id) => subscriptionIds.has(id)) : [] }))
   }
 
   // 组先于档案落库:档案里的站点集名不能和组名撞,顺序反了校验就是拿旧组名比的
@@ -107,6 +116,7 @@ export const applyBackup = (store, data, { subscriptionsMode = 'replace', panelS
       store.setNodes(nodes)
     }
   }
+  if (subscriptionShares) store.setSubscriptionShares(subscriptionShares)
   let panelWritten = false
   let backgroundWritten = false
   if (panelStorage) {
@@ -125,6 +135,7 @@ export const applyBackup = (store, data, { subscriptionsMode = 'replace', panelS
       groups: groups ? groups.length : 0,
       subscriptions: subscriptions ? subscriptions.length : 0,
       nodes: nodes ? nodes.length : 0,
+      ...(subscriptionShares ? { subscriptionShares: subscriptionShares.length } : {}),
       subscriptionsMode: subscriptions ? subscriptionsMode : null,
       panelSettings: panelWritten ? Object.keys(panelSettings).length : 0,
       backgroundImage: backgroundWritten,

@@ -51,6 +51,11 @@
         />
 
         <template v-if="pageTab === 'subs'">
+        <SubscriptionShareCard
+          :subscriptions="subscriptions"
+          :shares="shares"
+          @changed="loadShares"
+        />
         <div
           v-if="loading && subscriptions.length === 0"
           class="flex justify-center py-14"
@@ -161,12 +166,13 @@
 <script setup lang="ts">
 import { notifySubscriptionSaved } from '@/store/openboxSubscriptions'
 import MarketLink from '@/components/common/MarketLink.vue'
-import type { OpenboxSubscription } from '@/api/openbox'
-import { deleteSubscription, fetchSubscriptions, refreshSubscription, reorderSubscriptions, updateSubscription } from '@/api/openbox'
+import type { OpenboxSubscription, OpenboxSubscriptionShare } from '@/api/openbox'
+import { deleteSubscription, fetchSubscriptions, fetchSubscriptionShares, refreshSubscription, reorderSubscriptions, updateSubscription } from '@/api/openbox'
 import DialogWrapper from '@/components/common/DialogWrapper.vue'
 import AddSubscriptionDialog from '@/components/subscription/AddSubscriptionDialog.vue'
 import NodeGroupsPanel from '@/components/subscription/NodeGroupsPanel.vue'
 import SubscriptionCard from '@/components/subscription/SubscriptionCard.vue'
+import SubscriptionShareCard from '@/components/subscription/SubscriptionShareCard.vue'
 import { usePaddingForViews } from '@/composables/paddingViews'
 import {
   PlusIcon,
@@ -190,6 +196,7 @@ const props = defineProps<{
 const pageTab = computed(() => props.tab ?? 'subs')
 
 const subscriptions = ref<OpenboxSubscription[]>([])
+const shares = ref<OpenboxSubscriptionShare[]>([])
 const loading = ref(false)
 
 const loadSubscriptions = async () => {
@@ -207,10 +214,23 @@ const loadSubscriptions = async () => {
   }
 }
 
+const loadShares = async () => {
+  try {
+    shares.value = await fetchSubscriptionShares()
+  } catch (error) {
+    showNotification({
+      content: '订阅分享加载失败',
+      type: 'alert-error',
+      params: { message: error instanceof Error ? error.message : String(error) },
+    })
+  }
+}
+
 // 订阅卡片上的节点圆点/可用数来自内核(proxyMap)和节点归属表(nodeProviders);这两份
 // 数据原本只有代理页会拉,设置页不拉的话卡片永远显示 0/N、"内核里没有节点"。
 onMounted(() => {
   void loadSubscriptions()
+  void loadShares()
   void loadOpenboxNodeGroups()
   void fetchProxies()
 })
