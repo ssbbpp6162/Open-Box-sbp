@@ -69,7 +69,7 @@ const qrDataUrl = ref('')
 const busy = ref(false)
 const form = reactive({ name: '', subscriptionIds: [] as string[] })
 const shareUrl = (share: OpenboxSubscriptionShare) => new URL(`/sub/${share.token}`, window.location.origin).toString()
-const selectedNames = (share: OpenboxSubscriptionShare) => share.subscriptionIds.map((id) => props.subscriptions.find((s) => s.id === id)?.name || id)
+const selectedNames = (share: OpenboxSubscriptionShare) => (Array.isArray(share.subscriptionIds) ? share.subscriptionIds : []).map((id) => props.subscriptions.find((s) => s.id === id)?.name || id)
 const reset = () => { form.name = ''; form.subscriptionIds = []; editing.value = null; generatedShare.value = null; qrDataUrl.value = '' }
 const openCreate = () => { reset(); dialogOpen.value = true }
 const openEdit = (share: OpenboxSubscriptionShare) => { reset(); editing.value = share; form.name = share.name; form.subscriptionIds = [...share.subscriptionIds]; dialogOpen.value = true }
