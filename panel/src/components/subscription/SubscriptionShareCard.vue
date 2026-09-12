@@ -38,7 +38,7 @@
       <div class="flex min-h-0 flex-col gap-2">
         <div class="text-sm font-medium">选择要分享的订阅节点</div>
         <div class="max-h-80 overflow-y-auto pr-1">
-          <label v-for="sub in subscriptions" :key="sub.id" class="border-base-content/10 mb-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+          <label v-for="sub in subscriptions" :key="sub.id" class="border-base-content/10 flex items-center gap-2 border-b py-2 text-sm first:border-t">
             <input v-model="form.subscriptionIds" type="checkbox" class="checkbox checkbox-sm" :value="sub.id" />
             <span class="min-w-0 flex-1 truncate">{{ sub.name }}</span><span class="text-base-content/50 text-xs">{{ sub.nodeCount }} 个节点</span>
           </label>
@@ -47,8 +47,8 @@
       </div>
       <div class="flex flex-col gap-3">
         <label class="flex flex-col gap-1 text-sm"><span>标题</span><input v-model="form.name" class="input input-sm w-full" placeholder="例如：手机代理订阅" /></label>
-        <label class="flex flex-col gap-1 text-sm"><span>域名或 IP</span><input v-model="form.host" class="input input-sm w-full font-mono" placeholder="当前地址" /></label>
-        <div class="border-base-content/10 flex flex-col items-center gap-3 rounded-lg border p-3">
+        <label class="flex flex-col gap-1 text-sm"><span>域名或 IP</span><div class="join w-full"><select v-model="form.protocol" class="select select-sm join-item"><option value="http">http://</option><option value="https">https://</option></select><input v-model="form.host" class="input input-sm join-item min-w-0 flex-1 font-mono" placeholder="当前地址" /></div></label>
+        <div class="flex flex-col items-center gap-3 py-2">
           <img v-if="qrDataUrl" :src="qrDataUrl" alt="订阅分享二维码" class="h-40 w-40" />
           <div class="flex w-full gap-2"><input :value="displayUrl" readonly class="input input-sm min-w-0 flex-1 font-mono text-xs" /><button type="button" class="btn btn-sm" @click="copy(displayUrl)">复制</button></div>
           <p v-if="!generatedShare" class="text-base-content/50 text-xs">保存后此地址和二维码生效</p>
@@ -76,10 +76,11 @@ const generatedShare = ref<OpenboxSubscriptionShare | null>(null)
 const qrDataUrl = ref('')
 const draftToken = ref('')
 const busy = ref(false)
-const form = reactive({ name: '', host: '', subscriptionIds: [] as string[] })
+const form = reactive({ name: '', protocol: 'http' as 'http' | 'https', host: '', subscriptionIds: [] as string[] })
 const currentHost = () => window.location.host
-const shareUrl = (share: OpenboxSubscriptionShare) => `${window.location.protocol}//${share.host || currentHost()}/sub/${share.token}`
-const displayUrl = computed(() => generatedShare.value ? shareUrl(generatedShare.value) : `${window.location.protocol}//${form.host || currentHost()}/sub/${draftToken.value}`)
+const currentProtocol = () => window.location.protocol === 'https:' ? 'https' : 'http'
+const shareUrl = (share: OpenboxSubscriptionShare) => `${share.protocol || currentProtocol()}://${share.host || currentHost()}/sub/${share.token}`
+const displayUrl = computed(() => generatedShare.value ? shareUrl(generatedShare.value) : `${form.protocol}://${form.host || currentHost()}/sub/${draftToken.value}`)
 const makeDraftToken = () => {
   try {
     if (window.crypto?.getRandomValues) {
@@ -91,23 +92,23 @@ const makeDraftToken = () => {
   return `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`
 }
 const selectedNames = (share: OpenboxSubscriptionShare) => (Array.isArray(share.subscriptionIds) ? share.subscriptionIds : []).map((id) => props.subscriptions.find((s) => s.id === id)?.name || id)
-const reset = () => { form.name = ''; form.host = currentHost(); form.subscriptionIds = []; editing.value = null; generatedShare.value = null; draftToken.value = makeDraftToken(); qrDataUrl.value = '' }
+const reset = () => { form.name = ''; form.protocol = currentProtocol(); form.host = currentHost(); form.subscriptionIds = []; editing.value = null; generatedShare.value = null; draftToken.value = makeDraftToken(); qrDataUrl.value = '' }
 const openCreate = () => { reset(); dialogOpen.value = true }
-const openEdit = (share: OpenboxSubscriptionShare) => { reset(); editing.value = share; form.name = share.name; form.host = share.host || currentHost(); form.subscriptionIds = [...share.subscriptionIds]; dialogOpen.value = true }
+const openEdit = (share: OpenboxSubscriptionShare) => { reset(); editing.value = share; form.name = share.name; form.protocol = share.protocol || currentProtocol(); form.host = share.host || currentHost(); form.subscriptionIds = [...share.subscriptionIds]; dialogOpen.value = true }
 const makeQr = async (share: OpenboxSubscriptionShare) => { generatedShare.value = share; qrDataUrl.value = await QRCode.toDataURL(shareUrl(share), { margin: 1, width: 240 }) }
-watch(() => [form.host, draftToken.value], async () => { if (!generatedShare.value && draftToken.value) qrDataUrl.value = await QRCode.toDataURL(displayUrl.value, { margin: 1, width: 240 }) })
+watch(() => [form.protocol, form.host, draftToken.value], async () => { if (!generatedShare.value && draftToken.value) qrDataUrl.value = await QRCode.toDataURL(displayUrl.value, { margin: 1, width: 240 }) })
 const save = async () => {
   if (!form.name.trim() || !form.subscriptionIds.length || busy.value) return
   busy.value = true
   try {
     const share = editing.value
-      ? await updateSubscriptionShare(editing.value.id, { name: form.name, host: form.host, subscriptionIds: form.subscriptionIds, regenerate: true })
-      : await createSubscriptionShare({ name: form.name, host: form.host, subscriptionIds: form.subscriptionIds })
+      ? await updateSubscriptionShare(editing.value.id, { name: form.name, host: form.host, protocol: form.protocol, subscriptionIds: form.subscriptionIds, regenerate: true })
+      : await createSubscriptionShare({ name: form.name, host: form.host, protocol: form.protocol, subscriptionIds: form.subscriptionIds })
     await makeQr(share); emit('changed'); showNotification({ content: '订阅分享已保存', type: 'alert-success' })
   } catch (error) { showNotification({ content: '订阅分享保存失败', type: 'alert-error', params: { message: error instanceof Error ? error.message : String(error) } }) } finally { busy.value = false }
 }
 const regenerate = async (share: OpenboxSubscriptionShare) => { if (busy.value) return; busy.value = true; try { await regenerateSubscriptionShare(share.id); emit('changed') } finally { busy.value = false } }
 const remove = async (share: OpenboxSubscriptionShare) => { if (busy.value || !window.confirm(`确定删除“${share.name}”？`)) return; busy.value = true; try { await deleteSubscriptionShare(share.id); emit('changed') } finally { busy.value = false } }
-const openQr = async (share: OpenboxSubscriptionShare) => { reset(); editing.value = share; form.name = share.name; form.host = share.host || currentHost(); form.subscriptionIds = [...share.subscriptionIds]; await makeQr(share); dialogOpen.value = true }
+const openQr = async (share: OpenboxSubscriptionShare) => { reset(); editing.value = share; form.name = share.name; form.protocol = share.protocol || currentProtocol(); form.host = share.host || currentHost(); form.subscriptionIds = [...share.subscriptionIds]; await makeQr(share); dialogOpen.value = true }
 const copy = async (value: string) => { try { await navigator.clipboard.writeText(value); showNotification({ content: 'copySuccess', type: 'alert-success' }) } catch { showNotification({ content: 'copyFailed', type: 'alert-error' }) } }
 </script>

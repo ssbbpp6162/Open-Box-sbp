@@ -8,6 +8,7 @@ const MAX_NAME = 120
 const tokenFor = () => randomBytes(24).toString('hex')
 const now = () => Date.now()
 const cleanName = (value) => typeof value === 'string' ? value.trim().slice(0, MAX_NAME) : ''
+const normalizeProtocol = (value) => value === 'http' || value === 'https' ? value : ''
 
 const normalizeIds = (value, subscriptions) => {
   if (!Array.isArray(value)) return []
@@ -21,6 +22,7 @@ const normalizeRecord = (raw) => ({
   token: typeof raw?.token === 'string' && raw.token.length >= 32 ? raw.token : tokenFor(),
   subscriptionIds: Array.isArray(raw?.subscriptionIds) ? raw.subscriptionIds.filter((id) => typeof id === 'string') : [],
   host: typeof raw?.host === 'string' ? raw.host.trim() : '',
+  protocol: normalizeProtocol(raw?.protocol),
   createdAt: Number(raw?.createdAt) || now(),
   updatedAt: Number(raw?.updatedAt) || now(),
 })
@@ -104,8 +106,9 @@ export const registerSubscriptionShareRoutes = (app, { store } = {}) => {
     if (!subscriptionIds.length) return res.status(400).json({ error: 'select at least one subscription' })
     const host = typeof req.body?.host === 'string' ? req.body.host.trim() : ''
     if (!host) return res.status(400).json({ error: 'host is required' })
+    const protocol = normalizeProtocol(req.body?.protocol) || 'https'
     const timestamp = now()
-    const share = { id: tokenFor(), name, host, token: tokenFor(), subscriptionIds, createdAt: timestamp, updatedAt: timestamp }
+    const share = { id: tokenFor(), name, host, protocol, token: tokenFor(), subscriptionIds, createdAt: timestamp, updatedAt: timestamp }
     store.setSubscriptionShares([...store.getSubscriptionShares(), share])
     return res.status(201).json({ share })
   })
@@ -123,7 +126,8 @@ export const registerSubscriptionShareRoutes = (app, { store } = {}) => {
     if (!subscriptionIds.length) return res.status(400).json({ error: 'select at least one subscription' })
     const host = req.body?.host === undefined ? current.host : (typeof req.body.host === 'string' ? req.body.host.trim() : '')
     if (!host) return res.status(400).json({ error: 'host is required' })
-    const updated = { ...current, name, host, subscriptionIds, token: req.body?.regenerate ? tokenFor() : current.token, updatedAt: now() }
+    const protocol = req.body?.protocol === undefined ? current.protocol : normalizeProtocol(req.body.protocol)
+    const updated = { ...current, name, host, protocol, subscriptionIds, token: req.body?.regenerate ? tokenFor() : current.token, updatedAt: now() }
     list[index] = updated
     store.setSubscriptionShares(list)
     return res.json({ share: updated })
