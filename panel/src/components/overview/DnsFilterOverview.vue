@@ -17,6 +17,21 @@
     </div>
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <div class="bg-base-100 border-base-300/60 flex flex-col rounded-xl border p-4">
+        <div class="text-base-content/60 text-xs">{{ $t('dfAverage') }}</div>
+        <div class="my-2 text-3xl tabular-nums">
+          {{ data.averageMs === null ? '—' : Math.round(data.averageMs)
+          }}<span
+            v-if="data.averageMs !== null"
+            class="text-base-content/50 ml-1 text-sm"
+            >ms</span
+          >
+        </div>
+        <DnsSparkline
+          :values="data.hourly.map((h) => (h.timed ? h.elapsed / h.timed : 0))"
+          class="mt-auto text-emerald-500"
+        />
+      </div>
+      <div class="bg-base-100 border-base-300/60 flex flex-col rounded-xl border p-4">
         <div class="text-base-content/60 text-xs">{{ $t('dfQueries') }}</div>
         <div class="my-2 text-3xl tabular-nums">{{ data.queries.toLocaleString() }}</div>
         <DnsSparkline
@@ -65,21 +80,6 @@
               :style="{ width: `${(domain.count / Math.max(1, data.topDomains[0].count)) * 100}%` }"
             /></div
         ></RouterLink>
-      </div>
-      <div class="bg-base-100 border-base-300/60 flex flex-col rounded-xl border p-4">
-        <div class="text-base-content/60 text-xs">{{ $t('dfAverage') }}</div>
-        <div class="my-2 text-3xl tabular-nums">
-          {{ data.averageMs === null ? '—' : Math.round(data.averageMs)
-          }}<span
-            v-if="data.averageMs !== null"
-            class="text-base-content/50 ml-1 text-sm"
-            >ms</span
-          >
-        </div>
-        <DnsSparkline
-          :values="data.hourly.map((h) => (h.timed ? h.elapsed / h.timed : 0))"
-          class="mt-auto text-emerald-500"
-        />
       </div>
     </div>
   </section>
